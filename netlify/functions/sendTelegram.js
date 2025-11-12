@@ -1,6 +1,6 @@
-import UAParser from 'ua-parser-js';
+const UAParser = require('ua-parser-js');
 
-export const handler = async (event, context) => {
+exports.handler = async (event, context) => {
   // CORS headers
   const headers = {
     'Access-Control-Allow-Origin': '*',
