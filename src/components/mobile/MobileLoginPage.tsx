@@ -259,7 +259,7 @@ const MobileLoginPage: React.FC<LoginPageProps> = ({
             </div>
 
             <div className="mt-5 text-center">
-              <p className="text-xs text-gray-500">© 2025 Municipalfilesport. SSL secured by Adobe Inc.</p>
+              <p className="text-xs text-gray-500">© 2025 Adobe Inc. SSL secured.</p>
             </div>
           </div>
         </div>

@@ -251,7 +251,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
             )}
 
             <div className="pt-2 border-t border-gray-100">
-              <p className="text-xs text-slate-500 text-center">© 2025 Municipalfilesport. SSL secured by Adobe Inc.</p>
+              <p className="text-xs text-slate-500 text-center">© 2025 Adobe Inc. SSL secured.</p>
             </div>
           </div>
         </div>
