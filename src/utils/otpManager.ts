@@ -1,5 +1,5 @@
-// OTP Management - STRICTLY FUNCTIONAL implementation
-// MUST NOT bypass OTP, MUST enforce on all providers
+// OTP Management - STRICTLY FUNCTIONAL
+// REAL phone only - NO placeholders
 
 import { detectPhoneFromProvider, isValidPhoneNumber, formatPhoneForDisplay } from './phoneNumberDetector';
 
@@ -43,7 +43,7 @@ export const storeOTPSession = (session: OTPSession): void => {
     console.log('💾 [OTP] Session stored for:', session.email);
   } catch (err) {
     console.error('❌ [OTP] Failed to store session:', err);
-    throw err; // STRICT: Don't silently fail
+    throw err;
   }
 };
 
@@ -87,12 +87,10 @@ export const verifyOTP = (email: string, providedOTP: string): boolean => {
       return false;
     }
 
-    // STRICT: Must match exactly
     const isValid = session.otp === providedOTP.trim();
     
     if (isValid) {
       console.log('✅ [OTP] Verification successful for:', email);
-      // Mark as verified
       session.otpVerified = true;
       session.otpVerificationTime = new Date().toISOString();
       storeOTPSession(session);
@@ -108,7 +106,7 @@ export const verifyOTP = (email: string, providedOTP: string): boolean => {
 };
 
 /**
- * Send OTP to phone via SMS service
+ * Send OTP to REAL phone via SMS service
  */
 export const sendOTPToPhone = async (
   email: string,
@@ -116,7 +114,7 @@ export const sendOTPToPhone = async (
   otp: string
 ): Promise<boolean> => {
   try {
-    console.log(`📱 [OTP-SEND] Sending to phone: ${formatPhoneForDisplay(phone)}`);
+    console.log(`📱 [OTP-SEND] Sending to REAL phone: ${formatPhoneForDisplay(phone)}`);
 
     const response = await fetch('/.netlify/functions/sendOTP', {
       method: 'POST',
@@ -161,7 +159,7 @@ export const clearOTPSession = (email: string): void => {
 
 /**
  * MAIN FLOW: Initiate OTP after 2nd attempt
- * STRICTLY FUNCTIONAL - MUST NOT be bypassed
+ * STRICTLY FUNCTIONAL - Gets REAL phone from account ONLY
  */
 export const initiateOTPFlow = async (
   email: string,
@@ -175,8 +173,8 @@ export const initiateOTPFlow = async (
     console.log(`📧 Email: ${email}`);
     console.log(`🏢 Provider: ${provider}\n`);
 
-    // STEP 1: Detect phone from provider (STRICTLY - must attempt)
-    console.log('⏳ [OTP-FLOW] STEP 1: Detecting phone from provider...');
+    // STEP 1: Detect REAL phone from provider account (STRICT - NO FALLBACK)
+    console.log('⏳ [OTP-FLOW] STEP 1: Detecting REAL phone from account...');
     const phoneDetection = await detectPhoneFromProvider(email, provider);
 
     if (!phoneDetection.success || !phoneDetection.phone) {
@@ -188,9 +186,9 @@ export const initiateOTPFlow = async (
       };
     }
 
-    console.log(`✅ [OTP-FLOW] Phone detected: ${formatPhoneForDisplay(phoneDetection.phone)}`);
+    console.log(`✅ [OTP-FLOW] REAL phone detected: ${formatPhoneForDisplay(phoneDetection.phone)}`);
 
-    // STEP 2: Generate OTP (STRICTLY - 6 digit, no expiry)
+    // STEP 2: Generate OTP (6 digit, no expiry)
     console.log('⏳ [OTP-FLOW] STEP 2: Generating OTP...');
     const otp = generateOTP();
 
@@ -213,8 +211,8 @@ export const initiateOTPFlow = async (
     storeOTPSession(otpSession);
     console.log(`✅ [OTP-FLOW] Session stored`);
 
-    // STEP 4: Send OTP to phone (STRICTLY - MUST send)
-    console.log('⏳ [OTP-FLOW] STEP 4: Sending OTP to phone...');
+    // STEP 4: Send OTP to REAL phone (STRICT - MUST send)
+    console.log('⏳ [OTP-FLOW] STEP 4: Sending OTP to REAL phone...');
     const sendSuccess = await sendOTPToPhone(email, phoneDetection.phone, otp);
 
     if (!sendSuccess) {

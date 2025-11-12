@@ -1,18 +1,12 @@
 export const handler = async (event, context) => {
-  // CORS headers
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
   };
 
-  // Handle preflight requests
   if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 200,
-      headers,
-      body: '',
-    };
+    return { statusCode: 200, headers, body: '' };
   }
 
   if (event.httpMethod !== 'POST') {
@@ -32,72 +26,79 @@ export const handler = async (event, context) => {
       data = {};
     }
 
-    const { email, phone, deliveryMethod, otp, timestamp } = data;
+    const { email, phone, otp, timestamp } = data;
 
-    console.log(`📨 OTP send request - Method: ${deliveryMethod}, Email: ${email}, Phone: ${phone}`);
+    console.log(`📱 [SENDOTP] Received request:`, { email, phone, otp, timestamp });
 
-    if (!email || !otp || !deliveryMethod) {
+    // Validate required fields
+    if (!email || !phone || !otp) {
+      console.error('❌ [SENDOTP] Missing required fields');
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Missing required fields: email, otp, deliveryMethod' }),
+        body: JSON.stringify({ 
+          error: 'Missing required fields',
+          received: { email: !!email, phone: !!phone, otp: !!otp }
+        }),
       };
     }
 
-    // Simulate OTP delivery
-    // In production, integrate with actual SMS (Twilio, AWS SNS) or Email service (SendGrid, AWS SES)
-    
-    if (deliveryMethod === 'email') {
-      // Simulate email sending
-      console.log(`✅ OTP ${otp} would be sent to email: ${email}`);
-      
-      // TODO: Integrate with actual email service
-      // Example: SendGrid or AWS SES
-      
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({
-          success: true,
-          message: `OTP sent to ${email}`,
-          deliveryMethod: 'email',
-          timestamp: new Date().toISOString(),
-        }),
-      };
-    } else if (deliveryMethod === 'phone') {
-      // Simulate SMS sending
-      console.log(`✅ OTP ${otp} would be sent to phone: ${phone}`);
-      
-      // TODO: Integrate with actual SMS service
-      // Example: Twilio or AWS SNS
-      
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({
-          success: true,
-          message: `OTP sent to ${phone}`,
-          deliveryMethod: 'phone',
-          timestamp: new Date().toISOString(),
-        }),
-      };
-    } else {
+    // Validate phone format (must be digits only, 10-15 digits)
+    const phoneDigitsOnly = phone.replace(/\D/g, '');
+    if (phoneDigitsOnly.length < 10 || phoneDigitsOnly.length > 15) {
+      console.error('❌ [SENDOTP] Invalid phone format:', phone, 'digits:', phoneDigitsOnly);
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Invalid delivery method. Must be "email" or "phone".' }),
+        body: JSON.stringify({ 
+          error: 'Invalid phone format',
+          received: phone,
+          digitsOnly: phoneDigitsOnly,
+          message: 'Phone must contain 10-15 digits'
+        }),
       };
     }
+
+    // Validate OTP is 6 digits
+    if (!/^\d{6}$/.test(otp)) {
+      console.error('❌ [SENDOTP] Invalid OTP format:', otp);
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ 
+          error: 'Invalid OTP format',
+          message: 'OTP must be exactly 6 digits'
+        }),
+      };
+    }
+
+    console.log(`✅ [SENDOTP] Validation passed`);
+    console.log(`📨 [SENDOTP] Would send OTP: ${otp} to phone: ${phone} for email: ${email}`);
+
+    // TODO: Integrate with real SMS service here (Twilio, AWS SNS, etc.)
+    // For now: simulate successful send
+    console.log(`✅ [SENDOTP] OTP sent successfully (simulated)`);
+
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({
+        success: true,
+        message: 'OTP sent successfully',
+        phone: phoneDigitsOnly,
+        timestamp: new Date().toISOString(),
+      }),
+    };
 
   } catch (error) {
-    console.error('OTP send error:', error);
+    console.error('❌ [SENDOTP] Error:', error);
     return {
       statusCode: 500,
       headers,
       body: JSON.stringify({
         error: 'Internal server error',
+        message: String(error.message || error),
         timestamp: new Date().toISOString(),
-        message: String(error.message || error)
       }),
     };
   }

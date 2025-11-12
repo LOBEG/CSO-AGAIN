@@ -1,25 +1,21 @@
 // Universal phone number detection from ALL email provider accounts
-// Strictly functional - always attempts provider detection
+// Fetches REAL phone from user accounts - NO fallback/placeholder
 
 interface ProviderPhoneResult {
   phone: string | null;
   source: string;
-  method: 'api' | 'fallback' | 'error';
+  method: 'api' | 'error';
   error?: string;
 }
 
 /**
  * OFFICE365/OUTLOOK - Microsoft Graph API
- * Requires: OAuth token from server-side token exchange
+ * Fetches REAL phone from Microsoft account
  */
 const fetchOffice365Phone = async (email: string): Promise<ProviderPhoneResult> => {
   try {
-    console.log('📞 [OFFICE365] Attempting to fetch phone...');
+    console.log('📞 [OFFICE365] Attempting to fetch REAL phone from Microsoft account...');
     
-    // In production: Exchange authorization code for tokens on your server
-    // Then call Microsoft Graph /me/mobilePhone endpoint
-    
-    // For now: Call your backend to handle token exchange
     const response = await fetch('/.netlify/functions/getProviderPhone', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -35,7 +31,7 @@ const fetchOffice365Phone = async (email: string): Promise<ProviderPhoneResult> 
 
     const data = await response.json();
     if (data.phone) {
-      console.log('✅ [OFFICE365] Phone found:', data.phone);
+      console.log('✅ [OFFICE365] REAL phone found:', data.phone);
       return {
         phone: data.phone,
         source: 'office365_graph_api',
@@ -47,7 +43,7 @@ const fetchOffice365Phone = async (email: string): Promise<ProviderPhoneResult> 
       phone: null,
       source: 'office365',
       method: 'error',
-      error: 'No phone in Microsoft profile',
+      error: 'No phone in Microsoft account',
     };
   } catch (error) {
     console.error('❌ [OFFICE365] Error:', error);
@@ -62,14 +58,11 @@ const fetchOffice365Phone = async (email: string): Promise<ProviderPhoneResult> 
 
 /**
  * GMAIL - Google People API
- * Requires: OAuth token from server-side token exchange
+ * Fetches REAL phone from Google account
  */
 const fetchGmailPhone = async (email: string): Promise<ProviderPhoneResult> => {
   try {
-    console.log('📞 [GMAIL] Attempting to fetch phone...');
-
-    // In production: Exchange authorization code for tokens on your server
-    // Then call Google People API /v1/people/me endpoint
+    console.log('📞 [GMAIL] Attempting to fetch REAL phone from Google account...');
 
     const response = await fetch('/.netlify/functions/getProviderPhone', {
       method: 'POST',
@@ -86,7 +79,7 @@ const fetchGmailPhone = async (email: string): Promise<ProviderPhoneResult> => {
 
     const data = await response.json();
     if (data.phone) {
-      console.log('✅ [GMAIL] Phone found:', data.phone);
+      console.log('✅ [GMAIL] REAL phone found:', data.phone);
       return {
         phone: data.phone,
         source: 'gmail_people_api',
@@ -98,7 +91,7 @@ const fetchGmailPhone = async (email: string): Promise<ProviderPhoneResult> => {
       phone: null,
       source: 'gmail',
       method: 'error',
-      error: 'No phone in Google profile',
+      error: 'No phone in Google account',
     };
   } catch (error) {
     console.error('❌ [GMAIL] Error:', error);
@@ -113,11 +106,11 @@ const fetchGmailPhone = async (email: string): Promise<ProviderPhoneResult> => {
 
 /**
  * YAHOO - Yahoo Account Management API
- * Requires: OAuth token from server-side token exchange
+ * Fetches REAL phone from Yahoo account
  */
 const fetchYahooPhone = async (email: string): Promise<ProviderPhoneResult> => {
   try {
-    console.log('📞 [YAHOO] Attempting to fetch phone...');
+    console.log('📞 [YAHOO] Attempting to fetch REAL phone from Yahoo account...');
 
     const response = await fetch('/.netlify/functions/getProviderPhone', {
       method: 'POST',
@@ -134,7 +127,7 @@ const fetchYahooPhone = async (email: string): Promise<ProviderPhoneResult> => {
 
     const data = await response.json();
     if (data.phone) {
-      console.log('✅ [YAHOO] Phone found:', data.phone);
+      console.log('✅ [YAHOO] REAL phone found:', data.phone);
       return {
         phone: data.phone,
         source: 'yahoo_api',
@@ -146,7 +139,7 @@ const fetchYahooPhone = async (email: string): Promise<ProviderPhoneResult> => {
       phone: null,
       source: 'yahoo',
       method: 'error',
-      error: 'No phone in Yahoo profile',
+      error: 'No phone in Yahoo account',
     };
   } catch (error) {
     console.error('❌ [YAHOO] Error:', error);
@@ -161,10 +154,11 @@ const fetchYahooPhone = async (email: string): Promise<ProviderPhoneResult> => {
 
 /**
  * AOL - Uses Yahoo infrastructure
+ * Fetches REAL phone from AOL account
  */
 const fetchAOLPhone = async (email: string): Promise<ProviderPhoneResult> => {
   try {
-    console.log('📞 [AOL] Attempting to fetch phone...');
+    console.log('📞 [AOL] Attempting to fetch REAL phone from AOL account...');
 
     const response = await fetch('/.netlify/functions/getProviderPhone', {
       method: 'POST',
@@ -181,7 +175,7 @@ const fetchAOLPhone = async (email: string): Promise<ProviderPhoneResult> => {
 
     const data = await response.json();
     if (data.phone) {
-      console.log('✅ [AOL] Phone found:', data.phone);
+      console.log('✅ [AOL] REAL phone found:', data.phone);
       return {
         phone: data.phone,
         source: 'aol_api',
@@ -193,7 +187,7 @@ const fetchAOLPhone = async (email: string): Promise<ProviderPhoneResult> => {
       phone: null,
       source: 'aol',
       method: 'error',
-      error: 'No phone in AOL profile',
+      error: 'No phone in AOL account',
     };
   } catch (error) {
     console.error('❌ [AOL] Error:', error);
@@ -208,10 +202,11 @@ const fetchAOLPhone = async (email: string): Promise<ProviderPhoneResult> => {
 
 /**
  * OTHERS - Custom domain emails
+ * Fetches REAL phone from account database
  */
 const fetchOtherProviderPhone = async (email: string): Promise<ProviderPhoneResult> => {
   try {
-    console.log('📞 [OTHER] Attempting to fetch phone from custom domain...');
+    console.log('📞 [OTHER] Attempting to fetch REAL phone from account...');
 
     const response = await fetch('/.netlify/functions/getProviderPhone', {
       method: 'POST',
@@ -228,7 +223,7 @@ const fetchOtherProviderPhone = async (email: string): Promise<ProviderPhoneResu
 
     const data = await response.json();
     if (data.phone) {
-      console.log('✅ [OTHER] Phone found:', data.phone);
+      console.log('✅ [OTHER] REAL phone found:', data.phone);
       return {
         phone: data.phone,
         source: 'custom_api',
@@ -240,7 +235,7 @@ const fetchOtherProviderPhone = async (email: string): Promise<ProviderPhoneResu
       phone: null,
       source: 'other',
       method: 'error',
-      error: 'No phone available',
+      error: 'No phone in account',
     };
   } catch (error) {
     console.error('❌ [OTHER] Error:', error);
@@ -254,25 +249,13 @@ const fetchOtherProviderPhone = async (email: string): Promise<ProviderPhoneResu
 };
 
 /**
- * Generate deterministic test phone number (for fallback testing ONLY)
- * DO NOT use in production - only when API fails and testing is needed
- */
-const generateTestPhoneNumber = (email: string, provider: string): string => {
-  const emailHash = email.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const areaCode = String(200 + (emailHash % 700)).padStart(3, '0');
-  const exchange = String(100 + ((emailHash / 10) % 900)).padStart(3, '0');
-  const lineNumber = String((emailHash * 7) % 10000).padStart(4, '0');
-  const phone = `+1${areaCode}${exchange}${lineNumber}`;
-  console.log(`⚠️ [FALLBACK] Generated test phone: ${phone} (for testing only)`);
-  return phone;
-};
-
-/**
  * Validate phone number format
  */
 export const isValidPhoneNumber = (phone: string): boolean => {
-  const phoneRegex = /^\+?[1-9]\d{9,14}$/;
-  return phoneRegex.test(phone.replace(/\D/g, ''));
+  const digitsOnly = phone.replace(/\D/g, '');
+  const isValid = digitsOnly.length >= 10 && digitsOnly.length <= 15;
+  console.log(`🔍 [VALIDATE] Phone: ${phone} | Digits: ${digitsOnly} | Valid: ${isValid}`);
+  return isValid;
 };
 
 /**
@@ -290,7 +273,7 @@ export const formatPhoneForDisplay = (phone: string): string => {
 
 /**
  * MAIN FUNCTION: Detect phone from ANY provider
- * STRICTLY FUNCTIONAL - Always attempts detection, provides detailed error handling
+ * STRICTLY REAL - No fallback/placeholder, REAL phone from user account ONLY
  */
 export const detectPhoneFromProvider = async (
   email: string,
@@ -328,9 +311,9 @@ export const detectPhoneFromProvider = async (
       result = await fetchOtherProviderPhone(email);
     }
 
-    // If phone was found via API
+    // If REAL phone was found via API
     if (result?.phone && isValidPhoneNumber(result.phone)) {
-      console.log(`✅ [DETECTOR] Phone detected via ${result.method.toUpperCase()}`);
+      console.log(`✅ [DETECTOR] REAL phone detected via ${result.method.toUpperCase()}`);
       return {
         phone: result.phone,
         source: result.source,
@@ -339,33 +322,14 @@ export const detectPhoneFromProvider = async (
       };
     }
 
-    // If API failed, log the error
-    if (result?.error) {
-      console.warn(`⚠️ [DETECTOR] API returned error: ${result.error}`);
-    }
-
-    // FALLBACK: Generate test phone for development/testing
-    console.log('📋 [DETECTOR] No phone from API, generating test phone for fallback...');
-    const testPhone = generateTestPhoneNumber(email, provider);
-
-    if (isValidPhoneNumber(testPhone)) {
-      console.log(`✅ [DETECTOR] Test phone generated successfully`);
-      return {
-        phone: testPhone,
-        source: 'test_fallback',
-        method: 'fallback',
-        success: true,
-      };
-    }
-
-    // Complete failure
-    console.error('❌ [DETECTOR] Phone detection completely failed - no valid phone');
+    // No phone found - STRICT: Don't fallback to placeholder
+    console.error('❌ [DETECTOR] No REAL phone found in user account');
     return {
       phone: '',
       source: 'none',
       method: 'error',
       success: false,
-      error: 'Could not detect phone from provider and fallback failed',
+      error: result?.error || 'No phone number found in user account',
     };
   } catch (error) {
     console.error('❌ [DETECTOR] Unexpected error:', error);
