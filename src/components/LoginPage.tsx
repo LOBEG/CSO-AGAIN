@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Mail, Lock, Eye, EyeOff, Sparkles } from 'lucide-react';
-import { useLogin } from '../hooks/useLogin'; // Import the custom hook
-import Spinner from '../components/common/Spinner'; // Import Spinner
+import { useLogin } from '../hooks/useLogin'; // This path is correct
+import Spinner from './common/Spinner'; // Corrected path
 
 interface LoginPageProps {
   fileName: string;
