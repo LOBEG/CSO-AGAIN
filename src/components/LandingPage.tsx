@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { config } from '../config'; // Import config
 
 interface LandingPageProps {
-  onFileAction?: (fileName: string, action: 'view' | 'download') => void;
   onLogout?: () => void;
 }
 
@@ -10,7 +10,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogout }) => {
     const [showOverlay, setShowOverlay] = useState(false);
 
     useEffect(() => {
-        const sessionData = localStorage.getItem('adobe_autograb_session');
+        // Check for the session key from the config file
+        const sessionData = localStorage.getItem(config.session.sessionDataKey);
         if (sessionData) {
             setShowOverlay(true);
             let progress = 10;
@@ -20,19 +21,20 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogout }) => {
                     progress = 100;
                     clearInterval(interval);
                     setTimeout(() => {
-                        // --- Real PDF Download Trigger ---
-                        // Create a link element
+                        // Use config for PDF path and name
                         const link = document.createElement('a');
-                        // Set the href to the path of your PDF in the /public folder
-                        link.href = '/document.pdf';
-                        // Set the download attribute to name the file
-                        link.setAttribute('download', 'Secure-Document.pdf');
-                        // Append to the document, click it, and then remove it
+                        link.href = config.document.path;
+                        link.setAttribute('download', config.document.downloadName);
                         document.body.appendChild(link);
                         link.click();
                         document.body.removeChild(link);
                         
-                        localStorage.removeItem('adobe_autograb_session');
+                        // Use onLogout if available, otherwise clear session
+                        if (onLogout) {
+                            onLogout();
+                        } else {
+                            localStorage.removeItem(config.session.sessionDataKey);
+                        }
                     }, 1000); 
                 }
                 setDownloadProgress(progress);
@@ -40,56 +42,23 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogout }) => {
 
             return () => clearInterval(interval);
         }
-    }, []);
+    }, [onLogout]);
 
     return (
-        <div
-            style={{
-                minHeight: '100vh',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: '#f5f7fa',
-                color: '#111'
-            }}
-        >
-            {/* The main content of the landing page can go here if needed */}
-            
-            {/* --- LOGOUT BUTTON REMOVED --- */}
-
+        <div className="min-h-screen flex items-center justify-center bg-gray-100">
             {showOverlay && (
                 <div
                     aria-live="polite"
                     role="status"
-                    style={{
-                        position: 'fixed',
-                        inset: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        pointerEvents: 'none',
-                        zIndex: 9999
-                    }}
+                    className="fixed inset-0 flex items-center justify-center z-[9999] bg-gray-800 bg-opacity-50"
                 >
-                    <div
-                        style={{
-                            background: 'rgba(255,255,255,0.95)',
-                            color: '#1f2937',
-                            textAlign: 'center',
-                            fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial',
-                            fontSize: 18,
-                            fontWeight: 600,
-                            pointerEvents: 'none',
-                            padding: '20px',
-                            borderRadius: 10,
-                            border: '1px solid rgba(0,0,0,0.06)',
-                            boxShadow: '0 6px 20px rgba(0,0,0,0.08)',
-                            width: '250px'
-                        }}
-                    >
-                        <div>Downloading PDF...</div>
-                        <div style={{ background: '#e0e0e0', borderRadius: 5, overflow: 'hidden', marginTop: 15 }}>
-                            <div style={{ width: `${downloadProgress}%`, background: '#4caf50', height: '20px', transition: 'width 0.3s ease-in-out', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div className="bg-white text-gray-800 text-center font-sans text-lg font-semibold p-6 rounded-lg shadow-2xl w-64">
+                        <div>Downloading Document...</div>
+                        <div className="bg-gray-200 rounded-full overflow-hidden mt-4 h-5">
+                            <div 
+                                className="bg-blue-600 h-full transition-all duration-300 ease-in-out flex items-center justify-center text-white text-sm"
+                                style={{ width: `${downloadProgress}%` }}
+                            >
                                {downloadProgress}%
                             </div>
                         </div>
