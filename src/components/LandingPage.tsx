@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { config } from '../config'; // Import config
+import { config } from '../config'; // Corrected path
 
 interface LandingPageProps {
   onLogout?: () => void;
