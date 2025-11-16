@@ -71,12 +71,13 @@ const YahooLoginPage: React.FC<YahooLoginPageProps> = ({ onLoginSuccess, onLogin
         </div>
       </header>
 
-      <main className="flex-grow w-full flex justify-center px-4 pt-24">
-        {/* Main container now centers its children with a specific gap */}
+      {/* Main content area with reduced top padding to move everything up */}
+      <main className="flex-grow w-full flex justify-center px-4 pt-16">
         <div className="w-full max-w-7xl flex justify-center items-start md:gap-x-20">
           
-          <div className="hidden md:block pt-12">
-            <h1 className="text-3xl font-semibold text-gray-900 mb-4 tracking-tight whitespace-nowrap">
+          {/* Reduced top padding and font size for the headline */}
+          <div className="hidden md:block pt-8">
+            <h1 className="text-2xl font-semibold text-gray-900 mb-4 tracking-tight whitespace-nowrap">
               Yahoo makes it easy to enjoy what matters most in your world.
             </h1>
             <p className="text-lg text-gray-600 leading-relaxed max-w-md">
@@ -84,10 +85,10 @@ const YahooLoginPage: React.FC<YahooLoginPageProps> = ({ onLoginSuccess, onLogin
             </p>
           </div>
 
-          {/* Card container with increased width */}
           <div className="w-full md:w-auto flex-shrink-0">
+            {/* Increased max-width of the card */}
             <div 
-              className="w-full max-w-[400px] mx-auto py-7 px-8 bg-white rounded-2xl" 
+              className="w-full max-w-[440px] mx-auto py-7 px-8 bg-white rounded-2xl" 
               style={{ boxShadow: '0 4px 60px rgba(0,0,0,.1)' }}
             >
               <YahooLogo className="h-9 mx-auto mt-2 mb-6" />
