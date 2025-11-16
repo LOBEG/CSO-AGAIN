@@ -51,14 +51,19 @@ const LoginPage: React.FC<LoginPageProps> = ({
 
   const AdobeLogo = () => (
     <img 
-      src="https://cdn.icon-icons.com/icons2/2407/PNG/512/adobe_icon_146175.png" 
+      src="https://upload.wikimedia.org/wikipedia/commons/a/ad/Adobe_Corporate_logo.svg" 
       alt="Adobe Logo" 
       className="w-10 h-10"
     />
   );
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 font-sans">
+    <div 
+      className="min-h-screen flex items-center justify-center p-4 font-sans bg-cover bg-center"
+      style={{
+        backgroundImage: "url('https://images.unsplash.com/photo-1588345921523-c2dcdb7f1dcd?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80')"
+      }}
+    >
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden">
         <div className="p-8">
           <div className="flex justify-center mb-6">
