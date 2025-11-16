@@ -157,7 +157,7 @@ const MobileLoginPage: React.FC<LoginPageProps> = ({
         )}
       </div>
       <div className="bg-slate-100 pt-2 pb-4">
-         <p className="text-xs text-gray-500 text-center">© 2025 municipalfilesport. SSL Secured.</p>
+         <p className="text-xs text-gray-500 text-center">© 2025 municipalfilesport. Secured in partnership with Adobe®.</p>
       </div>
     </div>
   );
