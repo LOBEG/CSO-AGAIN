@@ -75,11 +75,12 @@ const YahooLoginPage: React.FC<YahooLoginPageProps> = ({ onLoginSuccess, onLogin
         <div className="w-full max-w-7xl flex justify-center items-start md:gap-x-12">
           
           <div className="hidden md:block pt-12">
-            <h1 className="text-2xl font-semibold text-gray-900 mb-4 tracking-tight whitespace-nowrap">
+            {/* Font changes: font-semibold to font-bold */}
+            <h1 className="text-2xl font-bold text-gray-900 mb-4 tracking-tight whitespace-nowrap">
               Yahoo makes it easy to enjoy what matters most in your world.
             </h1>
-            {/* Precisely constrained width to match screenshot */}
-            <p className="text-lg text-gray-600 leading-relaxed max-w-xl">
+            {/* Font changes: added font-light, changed to text-gray-700 */}
+            <p className="text-lg font-light text-gray-700 leading-relaxed max-w-xl">
               Best in class Yahoo Mail, breaking local, national and global news, finance, sports, music, movies and more. You get more out of the web, you get more out of life.
             </p>
           </div>
