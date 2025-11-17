@@ -71,8 +71,8 @@ const YahooLoginPage: React.FC<YahooLoginPageProps> = ({ onLoginSuccess, onLogin
         </div>
       </header>
 
-      <main className="flex-grow w-full flex justify-center px-10 pt-20">
-        {/* Layout changed to justify-center with a smaller gap to move card left */}
+      {/* Reduced top padding to move everything up */}
+      <main className="flex-grow w-full flex justify-center px-10 pt-16">
         <div className="w-full max-w-7xl flex justify-center items-start md:gap-x-12">
           
           <div className="hidden md:block pt-12">
@@ -85,9 +85,9 @@ const YahooLoginPage: React.FC<YahooLoginPageProps> = ({ onLoginSuccess, onLogin
           </div>
 
           <div className="w-full md:w-auto flex-shrink-0">
-            {/* Width reduced significantly */}
+            {/* Increased vertical padding to stretch the card */}
             <div 
-              className="w-[360px] mx-auto py-7 px-8 bg-white rounded-2xl" 
+              className="w-[360px] mx-auto pt-9 pb-8 px-8 bg-white rounded-2xl" 
               style={{ boxShadow: '0 4px 60px rgba(0,0,0,.1)' }}
             >
               <YahooLogo className="h-9 mx-auto mt-2 mb-6" />
