@@ -1,9 +1,9 @@
 {
-  "name": "Adobe Cloud - Protected Files",
-  "short_name": "Adobe Cloud",
+  "name": "Files Secure Access Port",
+  "short_name": "Files Port",
   "icons": [
     {
-      "src": "/acrobat-logo.png",
+      "src": "/my-icon.png",
       "sizes": "192x192",
       "type": "image/png"
     }
