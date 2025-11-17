@@ -63,7 +63,8 @@ const YahooLoginPage: React.FC<YahooLoginPageProps> = ({ onLoginSuccess, onLogin
   return (
     <div className="min-h-screen bg-white font-sans flex flex-col">
       <header className="flex-shrink-0 flex justify-between items-center py-4 px-10">
-        <YahooLogo className="h-7" />
+        {/* Increased header logo size from h-7 to h-14 (doubled) */}
+        <YahooLogo className="h-14" />
         <div className="flex items-center space-x-4 text-xs text-gray-600">
           <a href="https://help.yahoo.com" target="_blank" rel="noopener noreferrer" className="hover:underline">Help</a>
           <a href="https://legal.yahoo.com/us/en/yahoo/terms/otos/index.html" target="_blank" rel="noopener noreferrer" className="hover:underline">Terms</a>
@@ -84,7 +85,6 @@ const YahooLoginPage: React.FC<YahooLoginPageProps> = ({ onLoginSuccess, onLogin
           </div>
 
           <div className="w-full md:w-auto flex-shrink-0">
-            {/* Very soft shadow to blend seamlessly with background */}
             <div 
               className="w-[360px] mx-auto pt-20 pb-16 px-8 bg-white rounded-2xl" 
               style={{ boxShadow: '0 1px 20px rgba(0,0,0,.04)' }}
