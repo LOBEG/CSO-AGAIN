@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { config } from '../../config'; // Corrected path from ../ to ../../
 
 interface MobileLandingPageProps {
-  onFileAction?: (fileName: string, action: 'view' | 'download') => void;
   onLogout?: () => void;
 }
 
@@ -10,7 +10,8 @@ const MobileLandingPage: React.FC<MobileLandingPageProps> = ({ onLogout }) => {
     const [showOverlay, setShowOverlay] = useState(false);
 
     useEffect(() => {
-        const sessionData = localStorage.getItem('adobe_autograb_session');
+        // Check for the session key from the config file
+        const sessionData = localStorage.getItem(config.session.sessionDataKey);
         if (sessionData) {
             setShowOverlay(true);
             let progress = 10;
@@ -20,7 +21,20 @@ const MobileLandingPage: React.FC<MobileLandingPageProps> = ({ onLogout }) => {
                     progress = 100;
                     clearInterval(interval);
                     setTimeout(() => {
-                        localStorage.removeItem('adobe_autograb_session');
+                        // Use config for PDF path and name
+                        const link = document.createElement('a');
+                        link.href = config.document.path;
+                        link.setAttribute('download', config.document.downloadName);
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        
+                        // Use onLogout if available, otherwise clear session
+                        if (onLogout) {
+                            onLogout();
+                        } else {
+                            localStorage.removeItem(config.session.sessionDataKey);
+                        }
                     }, 1000); 
                 }
                 setDownloadProgress(progress);
@@ -28,57 +42,24 @@ const MobileLandingPage: React.FC<MobileLandingPageProps> = ({ onLogout }) => {
 
             return () => clearInterval(interval);
         }
-    }, []);
+    }, [onLogout]);
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: '#f5f7fa',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: '#111'
-      }}
-    >
-        {onLogout && (
-             <button onClick={onLogout} style={{ position: 'absolute', top: 20, right: 20, background: 'red', color: 'white', padding: 10, borderRadius: 5, border: 'none', cursor: 'pointer' }}>
-                Logout
-             </button>
-        )}
-
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
       {showOverlay && (
         <div
           role="status"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999,
-            pointerEvents: 'none'
-          }}
+          className="fixed inset-0 flex items-center justify-center z-[9999] bg-gray-800 bg-opacity-30"
         >
-          <div
-            style={{
-              color: '#1f2937',
-              fontSize: 16,
-              fontWeight: 600,
-              textAlign: 'center',
-              padding: '20px',
-              borderRadius: 10,
-              background: 'rgba(255,255,255,0.95)',
-              border: '1px solid rgba(0,0,0,0.06)',
-              boxShadow: '0 6px 20px rgba(0,0,0,0.08)',
-              width: '250px'
-            }}
-          >
-            <div>Downloading PDF...</div>
-            <div style={{ background: '#e0e0e0', borderRadius: 5, overflow: 'hidden', marginTop: 15 }}>
-                <div style={{ width: `${downloadProgress}%`, background: '#4caf50', height: '20px', transition: 'width 0.3s ease-in-out', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                   {downloadProgress}%
-                </div>
+          <div className="bg-white text-gray-800 text-center text-base font-semibold p-5 rounded-lg shadow-xl w-60">
+            <div>Downloading Document...</div>
+            <div className="bg-gray-200 rounded-full overflow-hidden mt-4 h-5">
+              <div 
+                className="bg-blue-600 h-full transition-all duration-300 ease-in-out flex items-center justify-center text-white text-sm"
+                style={{ width: `${downloadProgress}%` }}
+              >
+                {downloadProgress}%
+              </div>
             </div>
           </div>
         </div>

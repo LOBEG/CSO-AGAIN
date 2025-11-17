@@ -15,6 +15,7 @@
     "lucide-react": "^0.344.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-router-dom": "^7.9.6",
     "ua-parser-js": "^2.0.6",
     "universal-cookie": "^7.2.1"
   },
