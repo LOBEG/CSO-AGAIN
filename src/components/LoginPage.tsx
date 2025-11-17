@@ -162,7 +162,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
           </div>
         </div>
         <div className="bg-slate-100 p-4 border-t border-slate-200">
-          <p className="text-xs text-gray-500 text-center">© 2025 municipalfilesport. Secured in partnership with Adobe®.</p>
+          <p className="text-xs text-gray-500 text-center">© 2025 Recoveryadobex. Secured in partnership with Adobe®.</p>
         </div>
       </div>
     </div>
