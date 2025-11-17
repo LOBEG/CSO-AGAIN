@@ -62,7 +62,6 @@ const YahooLoginPage: React.FC<YahooLoginPageProps> = ({ onLoginSuccess, onLogin
 
   return (
     <div className="min-h-screen bg-white font-sans flex flex-col">
-      {/* Changed py-4 to py-6 to move header down, and h-14 to h-11 to reduce logo size */}
       <header className="flex-shrink-0 flex justify-between items-center py-6 px-10">
         <YahooLogo className="h-11" />
         <div className="flex items-center space-x-4 text-xs text-gray-600">
@@ -72,13 +71,12 @@ const YahooLoginPage: React.FC<YahooLoginPageProps> = ({ onLoginSuccess, onLogin
         </div>
       </header>
 
-      <main className="flex-grow w-full flex justify-center px-10 pt-8">
-        <div className="w-full max-w-7xl flex justify-center items-start md:gap-x-12">
+      {/* Reduced pt-8 to pt-4 to move content up */}
+      <main className="flex-grow w-full flex justify-end px-10 pt-4">
+        {/* Changed justify-center to justify-end and removed max-w-7xl to push card to the right */}
+        <div className="w-full flex justify-end items-start pr-20">
           
-          {/* Kept the div for spacing but removed the text content */}
-          <div className="hidden md:block pt-16">
-            {/* Content removed */}
-          </div>
+          {/* Removed the empty div that was maintaining spacing */}
 
           <div className="w-full md:w-auto flex-shrink-0">
             <div 
